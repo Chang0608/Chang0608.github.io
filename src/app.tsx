@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './config'
+import { AnimatePresence } from 'framer-motion'
 
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
@@ -9,8 +10,38 @@ import ChatroomPage from './pages/ChatroomPage'
 import ProfilePage from './pages/ProfilePage'
 import AboutPage from './pages/AboutPage'
 import ProjectsPage from './pages/ProjectPage'
-import HPCPage from './pages/HPCpage'
+import ProjectShowroomLayout from './pages/ProjectShowroomLayout'
+import HPCPage from './pages/HPCPage'
 import NavBar from './components/NavBar'
+import NotesIndex from './notes/index'
+import MpiNoteListPage from './notes/mpi'
+
+function AnimatedRoutes({ user }: { user: User | null }) {
+  const location = useLocation()
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={user ? <Navigate to="/chat" /> : <LoginPage />} />
+        <Route path="/chat" element={user ? <ChatroomPage /> : <Navigate to="/login" />} />
+        <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" />} />
+        <Route path="/about" element={<AboutPage />} />
+
+        {/* Projects */}
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:projectName/*" element={<ProjectShowroomLayout />} />
+
+        {/* HPC 舊版 */}
+        <Route path="/hpc" element={<HPCPage />} />
+
+        {/* Notes */}
+        <Route path="/notes" element={<NotesIndex />} />
+        <Route path="/notes/mpi" element={<MpiNoteListPage />} />
+      </Routes>
+    </AnimatePresence>
+  )
+}
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -30,19 +61,8 @@ function App() {
 
   return (
     <Router>
-      {/* 導覽列固定在最外層 */}
       <NavBar />
-
-      {/* 路由管理 */}
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={user ? <Navigate to="/chat" /> : <LoginPage />} />
-        <Route path="/chat" element={user ? <ChatroomPage /> : <Navigate to="/login" />} />
-        <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/hpc" element={<HPCPage />} />
-      </Routes>
+      <AnimatedRoutes user={user} />
     </Router>
   )
 }

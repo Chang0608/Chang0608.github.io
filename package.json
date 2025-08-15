@@ -4,11 +4,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "vite",
+    "build-logs": "node src/scripts/build-logs.js",
+    "prebuild": "npm run build-logs",
     "build": "vite build",
     "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "predeploy": "npm run build && cp dist/index.html dist/404.html",
+    "deploy": "gh-pages -d dist",
+    "start": "vite"
   },
   "keywords": [],
   "author": "",
@@ -17,21 +19,27 @@
   "dependencies": {
     "firebase": "^11.6.1",
     "framer-motion": "^12.9.2",
+    "link-react": "^3.0.0",
     "lucide-react": "^0.503.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.5.2",
+    "remark-gfm": "^4.0.0",
     "typewriter-effect": "^2.22.0"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.16",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.21",
+    "cpx": "^1.5.0",
     "gh-pages": "^6.3.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.3"
   }
