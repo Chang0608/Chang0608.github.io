@@ -281,7 +281,7 @@
       </div>
     </div>
 
-    <figure class="field" aria-label="Animation: the real robot follows its own path, which is the ground truth; its digital twin starts on the planned path and is nudged until it follows the real robot">
+    <figure class="field" aria-label="Animation: a real robot arm and its digital twin get the same command and stop in slightly different poses; the real arm is the ground truth, so only the twin is nudged until it matches">
       <svg viewBox="0 0 600 444" role="img" aria-hidden="true">
         <defs>
           <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -289,28 +289,31 @@
           </pattern>
         </defs>
         <rect width="600" height="444" fill="url(#dots)"/>
-        <line x1="70" y1="336" x2="530" y2="126" stroke="var(--accent)" stroke-width="1.1" stroke-dasharray="4 6" opacity=".8"/>
-        <text x="318" y="268" font-family="JetBrains Mono, monospace" font-size="10.5" letter-spacing="1.6" fill="var(--muted)" transform="rotate(-24.5 318 268)">PLANNED PATH</text>
-        <polyline id="trail" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        <polyline id="trail2" fill="none" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle id="twin" r="11" fill="none" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 3"/>
-        <g id="bot">
-          <circle r="6.5" fill="var(--text)"/>
-          <line x1="0" y1="0" x2="15" y2="0" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="176" y1="394" x2="424" y2="394" stroke="var(--muted)" stroke-width="1"/>
+        <path d="M186 392l-9 9M200 392l-9 9M214 392l-9 9M228 392l-9 9M242 392l-9 9M256 392l-9 9M270 392l-9 9M284 392l-9 9M298 392l-9 9M312 392l-9 9M326 392l-9 9M340 392l-9 9M354 392l-9 9M368 392l-9 9M382 392l-9 9M396 392l-9 9M410 392l-9 9" stroke="var(--faint)" stroke-width="1"/>
+        <rect x="280" y="380" width="40" height="14" fill="var(--surface)" stroke="var(--text)" stroke-width="1.2"/>
+        <g id="twin" fill="none" stroke="var(--accent)" stroke-linecap="round" stroke-linejoin="round">
+          <polyline class="links band" stroke-width="10" stroke-opacity=".18"/>
+          <polyline class="links" stroke-width="1.2" stroke-dasharray="5 4"/>
+          <path class="grip" stroke-width="1.4"/>
+          <circle class="j" r="8" fill="var(--accent)" fill-opacity=".14" stroke-width="1" stroke-dasharray="2 2.5"/><circle class="j" r="8" fill="var(--accent)" fill-opacity=".14" stroke-width="1" stroke-dasharray="2 2.5"/><circle class="j" r="8" fill="var(--accent)" fill-opacity=".14" stroke-width="1" stroke-dasharray="2 2.5"/>
         </g>
-        <g stroke="var(--muted)" stroke-width="1">
-          <path d="M64 336h12M70 330v12"/>
-          <path d="M524 126h12M530 120v12"/>
+        <g id="real" fill="none" stroke="var(--text)" stroke-linecap="round" stroke-linejoin="round">
+          <polyline class="links" stroke-width="3.2"/>
+          <path class="grip" stroke-width="2"/>
+          <circle class="j" r="5.5" fill="var(--surface)" stroke-width="1.6"/><circle class="j" r="5.5" fill="var(--surface)" stroke-width="1.6"/><circle class="j" r="5.5" fill="var(--surface)" stroke-width="1.6"/>
         </g>
-        <g font-family="JetBrains Mono, monospace" font-size="9.5" letter-spacing="1.4" fill="var(--muted)">
-          <text x="56" y="360">START</text>
-          <text x="514" y="150">GOAL</text>
+        <g id="gap" stroke="var(--warm)" fill="var(--warm)" opacity="0">
+          <line stroke-width="1"/>
+          <circle r="1.8" stroke="none"/><circle r="1.8" stroke="none"/>
+          <text font-family="JetBrains Mono, monospace" font-size="13" stroke="none">Δ</text>
         </g>
       </svg>
       <span class="mark tl"></span><span class="mark tr"></span><span class="mark bl"></span><span class="mark br"></span>
-      <div class="cap top"><span>Fig. 01 · Sim follows real</span><span class="status" id="status">sim ≠ real</span></div>
+      <div class="cap top"><span>Fig. 01 · Sim follows real</span><span class="status" id="status">same command</span></div>
       <div class="cap bottom">
-        <span class="legend"><span><i style="background:var(--text)"></i>Real robot · ground truth</span><span><i style="border:1px dashed var(--accent)"></i>Digital twin</span></span>
+        <span class="legend"><span><i style="background:var(--text)"></i>Real arm · ground truth</span><span><i style="border:1px dashed var(--accent)"></i>Digital twin</span></span>
+        <span>Offsets exaggerated</span>
       </div>
     </figure>
     <a class="scroll" href="#question" aria-label="Scroll to content"><span class="label">Scroll</span><i></i></a>
@@ -566,61 +569,73 @@
   else window.addEventListener('resize', updateToc);
   updateToc();
 
-  // Hero: the real robot is the ground truth and is never corrected.
-  // Its twin starts on the planned path (the ideal), then gets nudged until it follows the real robot.
-  const A = { x: 70, y: 336 }, B = { x: 530, y: 126 };
-  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy);
-  const nx = dy / len, ny = -dx / len;      // normal to the plan
-  const bot = document.getElementById('bot');
-  const twin = document.getElementById('twin');
-  const realTrail = document.getElementById('trail');
-  const twinTrail = document.getElementById('trail2');
-  const status = document.getElementById('status');
-  const NUDGE = 0.32, DURATION = 8000, HOLD = 1800;
-  const D = 80;                             // how far the real path bows away from the plan
-  const C = 0.06;                           // time constant of the nudge
+  // Hero: the real arm and its twin get the same command and stop in slightly different poses.
+  // The real arm is the ground truth and is never corrected; only the twin is nudged until it matches.
+  const L = [150, 125, 48], BASE = { x: 300, y: 380 };
+  const POSES = [[65, -40, -35], [110, 35, 30], [85, -20, -80]];   // commanded joint angles (deg)
+  const BIAS = [[7, -9, 11], [-7, 10, -9], [8, -7, 10]];            // how the real controller lands off each command (drawn large)
+  const MOVE = 1700, GAP = 700, NUDGE = 1400, HOLD = 1200, SEG = MOVE + GAP + NUDGE + HOLD, LOOP = SEG * POSES.length;
+  const TAU = 260;                                                  // time constant of the nudge (ms)
+  const add = (a, b, k = 1) => a.map((v, i) => v + b[i] * k);
+  const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const ease = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const open = (u) => (1 + u) * Math.exp(-u);                       // share of the gap still open (critically damped)
+  const twinAtEnd = (k) => add(POSES[k], BIAS[k], 1 - open((NUDGE + HOLD) / TAU));
 
-  const realOff = (t) => D * Math.sin(Math.PI * t / 1.25);
-  // share of the sim-real gap still open: 1 before the nudge, then a critically damped close
-  function gapLeft(t) {
-    if (t < NUDGE) return 1;
-    const u = (t - NUDGE) / C;
-    return (1 + u) * Math.exp(-u);
-  }
-  const twinOff = (t) => realOff(t) * (1 - gapLeft(t));
-  const at = (t, o) => ({ x: A.x + dx * t + nx * o, y: A.y + dy * t + ny * o });
-  function heading(t) {
-    const h = 0.004, p0 = at(Math.max(0, t - h), realOff(Math.max(0, t - h))), p1 = at(Math.min(1, t + h), realOff(Math.min(1, t + h)));
-    return Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
-  }
-  function draw(t) {
-    const p = at(t, realOff(t)), q = at(t, twinOff(t));
-    bot.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${heading(t).toFixed(1)})`);
-    twin.setAttribute('cx', q.x.toFixed(1));
-    twin.setAttribute('cy', q.y.toFixed(1));
-    const rp = [], tp = [];
-    for (let s = 0; s <= t + 1e-9; s += 0.008) {
-      const u = Math.min(s, t), a = at(u, realOff(u)), b = at(u, twinOff(u));
-      rp.push(`${a.x.toFixed(1)},${a.y.toFixed(1)}`);
-      tp.push(`${b.x.toFixed(1)},${b.y.toFixed(1)}`);
+  function state(time) {
+    const tt = ((time % LOOP) + LOOP) % LOOP, k = Math.floor(tt / SEG), e = tt - k * SEG;
+    const prev = (k + POSES.length - 1) % POSES.length;
+    const cmd = POSES[k], real = add(cmd, BIAS[k]);
+    if (e < MOVE) {
+      const t = ease(e / MOVE);
+      return { real: mix(add(POSES[prev], BIAS[prev]), real, t), twin: mix(twinAtEnd(prev), cmd, t), phase: 'move' };
     }
-    realTrail.setAttribute('points', rp.join(' '));
-    twinTrail.setAttribute('points', tp.join(' '));
-    const gap = realOff(t) * gapLeft(t);
-    const aligned = t > NUDGE && gap < 3;
-    status.textContent = t < NUDGE ? 'sim ≠ real' : (aligned ? 'sim ≈ real' : 'nudging sim');
+    if (e < MOVE + GAP) return { real, twin: cmd, phase: 'gap' };
+    return { real, twin: add(cmd, BIAS[k], 1 - open((e - MOVE - GAP) / TAU)), phase: 'nudge' };
+  }
+  function fk(q) {
+    let x = BASE.x, y = BASE.y, a = 0;
+    const pts = [[x, y]];
+    q.forEach((deg, i) => { a += deg * Math.PI / 180; x += L[i] * Math.cos(a); y -= L[i] * Math.sin(a); pts.push([x, y]); });
+    return { pts, a };
+  }
+  const f = (v) => v.toFixed(1);
+  function drawArm(g, q) {
+    const { pts, a } = fk(q), [ex, ey] = pts[3];
+    const dx = Math.cos(a), dy = -Math.sin(a), px = -dy * 7, py = dx * 7;
+    const line = pts.map(([x, y]) => `${f(x)},${f(y)}`).join(' ');
+    g.querySelectorAll('.links').forEach(l => l.setAttribute('points', line));
+    g.querySelector('.grip').setAttribute('d',
+      `M${f(ex + px)} ${f(ey + py)}L${f(ex - px)} ${f(ey - py)}` +
+      `M${f(ex + px)} ${f(ey + py)}l${f(dx * 12)} ${f(dy * 12)}M${f(ex - px)} ${f(ey - py)}l${f(dx * 12)} ${f(dy * 12)}`);
+    g.querySelectorAll('.j').forEach((c, i) => { c.setAttribute('cx', f(pts[i][0])); c.setAttribute('cy', f(pts[i][1])); });
+    return [ex + dx * 6, ey + dy * 6];
+  }
+  const realArm = document.getElementById('real'), twinArm = document.getElementById('twin');
+  const gap = document.getElementById('gap'), gapLine = gap.querySelector('line'), gapEnds = gap.querySelectorAll('circle'), gapText = gap.querySelector('text');
+  const status = document.getElementById('status');
+  function draw(time) {
+    const st = state(time);
+    const r = drawArm(realArm, st.real), t = drawArm(twinArm, st.twin);
+    const d = Math.hypot(r[0] - t[0], r[1] - t[1]);
+    gapLine.setAttribute('x1', f(r[0])); gapLine.setAttribute('y1', f(r[1]));
+    gapLine.setAttribute('x2', f(t[0])); gapLine.setAttribute('y2', f(t[1]));
+    gapEnds[0].setAttribute('cx', f(r[0])); gapEnds[0].setAttribute('cy', f(r[1]));
+    gapEnds[1].setAttribute('cx', f(t[0])); gapEnds[1].setAttribute('cy', f(t[1]));
+    gapText.setAttribute('x', f((r[0] + t[0]) / 2 + 10)); gapText.setAttribute('y', f((r[1] + t[1]) / 2 - 8));
+    gap.setAttribute('opacity', st.phase === 'move' ? '0' : Math.min(1, Math.max(0, (d - 3) / 6)).toFixed(2));
+    const aligned = st.phase === 'nudge' && d < 2.5;
+    status.textContent = st.phase === 'move' ? 'same command' : st.phase === 'gap' ? 'sim ≠ real' : aligned ? 'sim ≈ real' : 'nudging sim';
     status.classList.toggle('ok', aligned);
   }
 
   const frameParam = new URLSearchParams(location.search).get('frame');
-  if (frameParam !== null) { draw(Math.min(1, Math.max(0, parseFloat(frameParam) || 0))); return; }
-  if (reduce) { draw(1); return; }
+  if (frameParam !== null) { draw((parseFloat(frameParam) || 0) * LOOP); return; }
+  if (reduce) { draw(MOVE + GAP / 2); return; }                     // a still frame that shows the gap
   let start = null;
   function frame(ts) {
     if (start === null) start = ts;
-    const e = ts - start;
-    draw(Math.min(1, e / DURATION));
-    if (e > DURATION + HOLD) start = ts;
+    draw(ts - start);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
