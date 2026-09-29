@@ -116,6 +116,7 @@
   .field .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .field .status.ok { color: var(--accent-2); }
   .field .legend { display: flex; gap: 16px; }
+  .field .pv { fill: var(--surface); }
   .field .legend i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; }
 
   /* editorial two-column grid inside each page */
@@ -281,39 +282,45 @@
       </div>
     </div>
 
-    <figure class="field" aria-label="Animation: a real robot arm and its digital twin get the same command and stop in slightly different poses; the real arm is the ground truth, so only the twin is nudged until it matches">
+    <figure class="field" aria-label="Animation: a real SO-101 robot arm and its digital twin get the same command and stop in slightly different poses; the real arm is the ground truth, so only the twin is nudged until it matches">
+      <!-- Arm outline: side-view silhouette computed from the SO-101 URDF and CAD meshes,
+           TheRobotStudio/SO-ARM100 (Apache License 2.0). -->
       <svg viewBox="0 0 600 444" role="img" aria-hidden="true">
         <defs>
           <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="12" cy="12" r=".9" fill="var(--field-dot)"/>
           </pattern>
+          <path id="so-base" d="M220.2 386.1L220.2 377.2L219.7 376.1L218.8 375.6L189.2 375.3L188.8 375.2L188.6 374.9L188.6 367.9L188.9 367.5L190.5 366.6L191.2 366.6L191.6 366.9L191.7 368.7L192.0 369.0L193.0 368.9L193.2 367.0L193.7 366.5L194.9 366.7L195.2 367.6L195.4 367.8L199.5 367.8L200.3 368.2L204.1 368.2L204.8 367.8L208.8 367.8L209.1 367.6L209.4 361.4L209.8 361.1L211.6 361.0L212.1 360.3L212.1 347.5L211.5 347.0L209.9 347.0L209.4 346.7L209.3 345.5L208.8 345.1L208.6 344.7L208.7 344.4L209.2 343.9L209.2 342.6L209.0 342.4L204.5 342.3L204.1 342.1L203.6 341.3L200.9 341.3L200.5 341.5L200.2 342.0L199.9 342.3L195.4 342.3L194.7 343.5L192.4 343.5L191.9 343.0L191.9 337.6L191.6 337.3L161.1 337.3L159.9 337.8L159.1 339.0L156.8 339.2L156.3 339.0L155.9 338.1L153.6 338.1L153.4 338.3L153.3 367.2L153.6 367.5L156.0 367.4L156.2 361.3L156.8 360.9L158.8 361.0L159.1 361.2L159.3 361.7L159.3 385.9L160.1 387.3L161.2 387.7L219.7 387.7L220.0 387.4ZM237.6 316.5L236.9 315.7L232.7 315.6L232.2 315.2L232.1 299.5L230.1 297.3L217.0 297.2L214.9 299.3L214.8 315.2L214.4 315.7L212.9 316.0L212.6 318.3L210.9 320.1L211.0 321.8L211.5 323.1L212.2 323.4L212.4 323.8L212.3 324.2L211.2 325.4L212.2 327.9L212.7 328.5L212.6 334.9L212.1 335.3L195.2 335.4L194.3 335.9L193.7 336.9L193.6 340.9L194.0 342.1L194.3 342.3L205.5 342.3L206.8 343.2L215.2 343.2L217.2 345.0L217.9 345.2L218.1 345.7L218.1 364.2L215.3 366.7L210.0 366.8L209.8 366.9L209.6 367.6L209.2 367.8L194.1 367.8L193.6 368.6L193.6 372.5L194.1 373.9L194.8 374.4L195.8 374.7L226.7 374.6L234.8 367.4L235.4 366.2L235.5 336.0L235.8 335.5L237.1 335.3L237.5 334.8Z"/><path id="so-upper" d="M250.1 232.3L250.2 219.1L248.1 216.9L232.8 216.9L232.3 216.4L232.1 214.2L231.6 213.5L230.9 213.3L216.4 213.3L215.7 213.5L215.2 214.0L215.1 304.9L215.5 307.2L216.6 309.2L218.6 311.2L220.6 312.3L222.0 312.7L224.2 312.7L225.6 312.5L227.7 311.6L229.4 310.3L230.3 309.2L231.2 307.6L231.8 305.7L231.9 238.4L232.2 237.7L232.3 234.7L232.8 234.3L248.0 234.3Z"/><path id="so-lower" d="M344.6 215.5L342.4 213.3L326.7 213.2L326.3 212.8L326.2 210.6L325.8 210.3L308.0 210.3L306.6 211.8L306.4 216.6L306.2 217.0L305.9 217.2L241.7 217.3L238.9 218.3L236.6 220.2L235.2 222.8L234.7 225.6L235.2 228.5L236.7 231.1L239.1 233.0L241.8 233.9L305.9 234.0L306.4 234.4L306.6 235.6L307.3 236.1L325.5 236.1L326.1 235.4L326.2 231.2L326.6 230.7L342.4 230.6L344.5 228.6Z"/><path id="so-hand" d="M383.5 213.8L383.6 211.7L383.3 211.4L377.5 211.0L372.3 211.0L371.7 210.5L371.6 208.5L371.2 208.0L364.8 208.0L364.2 208.4L364.2 210.6L363.8 211.1L355.3 211.5L354.9 211.8L354.2 213.3L353.8 213.5L337.2 213.5L334.2 214.2L331.8 215.8L330.1 218.0L329.2 220.7L329.3 223.6L330.0 225.8L331.6 227.9L333.5 229.3L336.0 230.2L353.8 230.3L354.2 230.6L355.1 232.3L357.2 232.6L376.9 232.9L379.6 232.7L380.8 232.4L381.2 231.9L381.2 216.3ZM453.4 228.2L452.8 227.5L446.7 227.3L446.4 227.5L446.2 228.4L445.9 228.7L439.6 228.7L439.4 228.9L439.2 229.6L438.7 229.8L425.9 229.8L425.6 230.0L425.4 230.7L425.0 231.0L412.1 230.9L411.9 231.1L411.7 231.8L411.3 232.0L406.6 231.8L406.3 231.3L406.2 220.3L405.5 219.7L405.3 219.3L405.3 202.4L403.1 200.2L390.2 200.2L388.2 201.8L387.8 201.7L386.7 200.7L385.7 200.5L384.8 200.8L384.1 201.5L383.8 202.4L383.7 213.1L383.2 213.5L379.9 213.5L379.6 213.8L379.6 224.4L380.3 225.5L380.3 229.8L381.4 231.3L381.5 233.9L383.7 236.2L383.8 245.2L384.4 246.3L385.5 246.9L410.5 246.9L451.8 231.5L452.9 230.8L453.3 229.8ZM454.0 214.0L453.6 213.0L452.9 212.4L438.2 205.1L413.4 202.3L411.2 202.0L410.1 201.5L397.4 200.1L395.4 200.1L393.3 200.9L391.5 202.3L390.2 204.4L389.7 206.1L389.7 209.3L390.7 212.2L392.7 214.3L395.6 215.5L411.3 215.5L411.9 215.1L412.2 214.2L412.8 214.0L439.3 213.8L439.9 214.1L440.0 215.0L440.3 215.2L446.4 215.2L446.9 215.5L447.0 216.4L447.3 216.6L451.9 216.5L453.4 216.4L453.8 216.2Z"/>
         </defs>
         <rect width="600" height="444" fill="url(#dots)"/>
-        <line x1="176" y1="394" x2="424" y2="394" stroke="var(--muted)" stroke-width="1"/>
-        <path d="M186 392l-9 9M200 392l-9 9M214 392l-9 9M228 392l-9 9M242 392l-9 9M256 392l-9 9M270 392l-9 9M284 392l-9 9M298 392l-9 9M312 392l-9 9M326 392l-9 9M340 392l-9 9M354 392l-9 9M368 392l-9 9M382 392l-9 9M396 392l-9 9M410 392l-9 9" stroke="var(--faint)" stroke-width="1"/>
-        <rect x="280" y="380" width="40" height="14" fill="var(--surface)" stroke="var(--text)" stroke-width="1.2"/>
-        <g id="twin" fill="none" stroke="var(--accent)" stroke-linecap="round" stroke-linejoin="round">
-          <polyline class="links band" stroke-width="10" stroke-opacity=".18"/>
-          <polyline class="links" stroke-width="1.2" stroke-dasharray="5 4"/>
-          <path class="grip" stroke-width="1.4"/>
-          <circle class="j" r="8" fill="var(--accent)" fill-opacity=".14" stroke-width="1" stroke-dasharray="2 2.5"/><circle class="j" r="8" fill="var(--accent)" fill-opacity=".14" stroke-width="1" stroke-dasharray="2 2.5"/><circle class="j" r="8" fill="var(--accent)" fill-opacity=".14" stroke-width="1" stroke-dasharray="2 2.5"/>
+        <line x1="84" y1="391" x2="536" y2="391" stroke="var(--line)" stroke-width="1"/>
+        <g id="twin" fill="var(--accent)" fill-opacity=".13" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round">
+          <use href="#so-base"/>
+          <g class="sh"><use href="#so-upper"/>
+            <g class="el"><use href="#so-lower"/>
+              <g class="wr"><use href="#so-hand"/></g>
+            </g>
+          </g>
         </g>
-        <g id="real" fill="none" stroke="var(--text)" stroke-linecap="round" stroke-linejoin="round">
-          <polyline class="links" stroke-width="3.2"/>
-          <path class="grip" stroke-width="2"/>
-          <circle class="j" r="5.5" fill="var(--surface)" stroke-width="1.6"/><circle class="j" r="5.5" fill="var(--surface)" stroke-width="1.6"/><circle class="j" r="5.5" fill="var(--surface)" stroke-width="1.6"/>
+        <g id="real" fill="color-mix(in srgb, var(--text) 90%, var(--surface))">
+          <use href="#so-base"/><circle class="pv" cx="223.5" cy="304.4" r="2.6"/>
+          <g class="sh"><use href="#so-upper"/><circle class="pv" cx="243.1" cy="225.6" r="2.6"/>
+            <g class="el"><use href="#so-lower"/><circle class="pv" cx="337.5" cy="221.9" r="2.6"/>
+              <g class="wr"><use href="#so-hand"/></g>
+            </g>
+          </g>
         </g>
         <g id="gap" stroke="var(--warm)" fill="var(--warm)" opacity="0">
           <line stroke-width="1"/>
-          <circle r="1.8" stroke="none"/><circle r="1.8" stroke="none"/>
+          <circle r="2" stroke="none"/><circle r="2" stroke="none"/>
           <text font-family="JetBrains Mono, monospace" font-size="13" stroke="none">Δ</text>
         </g>
       </svg>
       <span class="mark tl"></span><span class="mark tr"></span><span class="mark bl"></span><span class="mark br"></span>
       <div class="cap top"><span>Fig. 01 · Sim follows real</span><span class="status" id="status">same command</span></div>
       <div class="cap bottom">
-        <span class="legend"><span><i style="background:var(--text)"></i>Real arm · ground truth</span><span><i style="border:1px dashed var(--accent)"></i>Digital twin</span></span>
-        <span>Offsets exaggerated</span>
+        <span class="legend"><span><i style="background:var(--text)"></i>Real arm · ground truth</span><span><i style="border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 14%, transparent)"></i>Digital twin</span></span>
+        <span>SO-101 · offsets exaggerated</span>
       </div>
     </figure>
     <a class="scroll" href="#question" aria-label="Scroll to content"><span class="label">Scroll</span><i></i></a>
@@ -569,12 +576,12 @@
   else window.addEventListener('resize', updateToc);
   updateToc();
 
-  // Hero: the real arm and its twin get the same command and stop in slightly different poses.
+  // Hero: a real SO-101 arm and its twin get the same command and stop in slightly different poses.
   // The real arm is the ground truth and is never corrected; only the twin is nudged until it matches.
-  const L = [150, 125, 48], BASE = { x: 300, y: 380 };
-  const POSES = [[65, -40, -35], [110, 35, 30], [85, -20, -80]];   // commanded joint angles (deg)
-  const BIAS = [[7, -9, 11], [-7, 10, -9], [8, -7, 10]];            // how the real controller lands off each command (drawn large)
-  const MOVE = 1700, GAP = 700, NUDGE = 1400, HOLD = 1200, SEG = MOVE + GAP + NUDGE + HOLD, LOOP = SEG * POSES.length;
+  const PIV = { shoulder: [223.5, 304.4], elbow: [243.1, 225.6], wrist: [337.5, 221.9] }, TCP = [449.0, 227.5];
+  const POSES = [[8, 16, 40], [-10, -16, -6], [22, -6, 30]];        // commanded pitch angles (deg, screen)
+  const BIAS = [[5, -6, 8], [-5, 7, -7], [6, -5, 7]];               // where the real controller lands instead (drawn large)
+  const MOVE = 1800, GAP = 700, NUDGE = 1400, HOLD = 1300, SEG = MOVE + GAP + NUDGE + HOLD, LOOP = SEG * POSES.length;
   const TAU = 260;                                                  // time constant of the nudge (ms)
   const add = (a, b, k = 1) => a.map((v, i) => v + b[i] * k);
   const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
@@ -593,36 +600,30 @@
     if (e < MOVE + GAP) return { real, twin: cmd, phase: 'gap' };
     return { real, twin: add(cmd, BIAS[k], 1 - open((e - MOVE - GAP) / TAU)), phase: 'nudge' };
   }
-  function fk(q) {
-    let x = BASE.x, y = BASE.y, a = 0;
-    const pts = [[x, y]];
-    q.forEach((deg, i) => { a += deg * Math.PI / 180; x += L[i] * Math.cos(a); y -= L[i] * Math.sin(a); pts.push([x, y]); });
-    return { pts, a };
+  // SVG rotate(): clockwise on screen about a pivot
+  function rot([x, y], [cx, cy], deg) {
+    const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c];
   }
+  const tcp = (q) => rot(rot(rot(TCP, PIV.wrist, q[2]), PIV.elbow, q[1]), PIV.shoulder, q[0]);
   const f = (v) => v.toFixed(1);
-  function drawArm(g, q) {
-    const { pts, a } = fk(q), [ex, ey] = pts[3];
-    const dx = Math.cos(a), dy = -Math.sin(a), px = -dy * 7, py = dx * 7;
-    const line = pts.map(([x, y]) => `${f(x)},${f(y)}`).join(' ');
-    g.querySelectorAll('.links').forEach(l => l.setAttribute('points', line));
-    g.querySelector('.grip').setAttribute('d',
-      `M${f(ex + px)} ${f(ey + py)}L${f(ex - px)} ${f(ey - py)}` +
-      `M${f(ex + px)} ${f(ey + py)}l${f(dx * 12)} ${f(dy * 12)}M${f(ex - px)} ${f(ey - py)}l${f(dx * 12)} ${f(dy * 12)}`);
-    g.querySelectorAll('.j').forEach((c, i) => { c.setAttribute('cx', f(pts[i][0])); c.setAttribute('cy', f(pts[i][1])); });
-    return [ex + dx * 6, ey + dy * 6];
+  function pose(g, q) {
+    g.querySelector('.sh').setAttribute('transform', `rotate(${q[0].toFixed(2)} ${PIV.shoulder})`);
+    g.querySelector('.el').setAttribute('transform', `rotate(${q[1].toFixed(2)} ${PIV.elbow})`);
+    g.querySelector('.wr').setAttribute('transform', `rotate(${q[2].toFixed(2)} ${PIV.wrist})`);
   }
   const realArm = document.getElementById('real'), twinArm = document.getElementById('twin');
   const gap = document.getElementById('gap'), gapLine = gap.querySelector('line'), gapEnds = gap.querySelectorAll('circle'), gapText = gap.querySelector('text');
   const status = document.getElementById('status');
   function draw(time) {
     const st = state(time);
-    const r = drawArm(realArm, st.real), t = drawArm(twinArm, st.twin);
-    const d = Math.hypot(r[0] - t[0], r[1] - t[1]);
+    pose(realArm, st.real); pose(twinArm, st.twin);
+    const r = tcp(st.real), t = tcp(st.twin), d = Math.hypot(r[0] - t[0], r[1] - t[1]);
     gapLine.setAttribute('x1', f(r[0])); gapLine.setAttribute('y1', f(r[1]));
     gapLine.setAttribute('x2', f(t[0])); gapLine.setAttribute('y2', f(t[1]));
     gapEnds[0].setAttribute('cx', f(r[0])); gapEnds[0].setAttribute('cy', f(r[1]));
     gapEnds[1].setAttribute('cx', f(t[0])); gapEnds[1].setAttribute('cy', f(t[1]));
-    gapText.setAttribute('x', f((r[0] + t[0]) / 2 + 10)); gapText.setAttribute('y', f((r[1] + t[1]) / 2 - 8));
+    gapText.setAttribute('x', f(Math.max(r[0], t[0]) + 10)); gapText.setAttribute('y', f((r[1] + t[1]) / 2 + 4));
     gap.setAttribute('opacity', st.phase === 'move' ? '0' : Math.min(1, Math.max(0, (d - 3) / 6)).toFixed(2));
     const aligned = st.phase === 'nudge' && d < 2.5;
     status.textContent = st.phase === 'move' ? 'same command' : st.phase === 'gap' ? 'sim ≠ real' : aligned ? 'sim ≈ real' : 'nudging sim';
