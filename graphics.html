@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,8 +10,7 @@
 <meta property="og:url" content="https://chang0608.github.io/graphics.html">
 <meta property="og:title" content="Kai-Chi Chang · Graphics">
 <meta property="og:description" content="Real-time graphics, ray tracing, and neural rendering. Does what holds offline still hold at sixty frames per second?">
-<meta name="theme-color" content="#e9e9e7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#121110">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,6 +21,9 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --r: #ff6b6b; --g: #4cc38a; --b: #7c9cff; --y: #ffc53d; } }
   :root[data-theme="dark"] { --r: #ff6b6b; --g: #4cc38a; --b: #7c9cff; --y: #ffc53d; }
   @media (min-width: 901px) { .hero h1 { font-size: clamp(40px, 4.9vw, 82px); } }
+  /* live caustics behind the whole page */
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
+  .field { box-shadow: 0 40px 80px -40px rgba(0, 0, 0, .8); }
 
   /* headline: a little chromatic aberration on "Real time", with the occasional glitch */
   .hero h1 .rt { display: inline; opacity: 1; transform: none; text-shadow: -0.03em 0 color-mix(in srgb, var(--r) 55%, transparent), 0.03em 0 color-mix(in srgb, var(--b) 55%, transparent); animation: aberr 7s 2.2s infinite; }
@@ -78,6 +80,7 @@
 </style>
 </head>
 <body>
+<canvas id="bg" aria-hidden="true"></canvas>
 
 <nav>
   <div class="wrap">
@@ -557,6 +560,84 @@
     pass(ts); present();
   }
   requestAnimationFrame(tick);
+})();
+
+// ── Background: light through water. A caustic pattern, each colour channel offset a little (dispersion),
+//    brighter where the cursor is, dimmer as you scroll into the reading sections.
+(() => {
+  const canvas = document.getElementById('bg');
+  const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, preserveDrawingBuffer: true });
+  if (!gl) return;
+  const params = new URLSearchParams(location.search);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const VS = `#version 300 es
+  void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  const FS = `#version 300 es
+  precision highp float;
+  uniform vec2 uRes, uMouse;
+  uniform float uTime, uFade;
+  uniform vec3 uBase, uR, uG, uB;
+  out vec4 outColor;
+  float caustic(vec2 uv, float t) {
+    vec2 p = mod(uv * 6.2831853, 6.2831853) - 250.0, i = p;
+    float c = 1.0, inten = 0.005;
+    for (int n = 0; n < 5; n++) {
+      float tt = t * (1.0 - 3.5 / float(n + 1));
+      i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x));
+      c += 1.0 / length(vec2(p.x / (sin(i.x + tt) / inten), p.y / (cos(i.y + tt) / inten)));
+    }
+    c = 1.17 - pow(c / 5.0, 1.4);
+    return pow(abs(c), 8.0);
+  }
+  void main() {
+    vec2 f = gl_FragCoord.xy, uv = f / uRes.y * 1.05;
+    float t = uTime * 0.14 + 23.0, d = 0.024;
+    vec3 k = vec3(caustic(uv + vec2(d, 0.0), t), caustic(uv, t), caustic(uv - vec2(d, 0.0), t));
+    vec3 col = uR * k.r + uG * k.g + uB * k.b;
+    vec2 m = (f - uMouse) / uRes.y;
+    float spot = exp(-dot(m, m) * 6.0);
+    float vig = smoothstep(1.3, 0.15, length((f - 0.5 * uRes) / uRes.y));
+    outColor = vec4(uBase + col * (0.10 + 0.30 * spot) * vig * uFade, 1.0);
+  }`;
+  const prog = gl.createProgram();
+  for (const [type, src] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, FS]]) {
+    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(sh)); return; }
+    gl.attachShader(prog, sh);
+  }
+  gl.linkProgram(prog); gl.useProgram(prog);
+  gl.bindVertexArray(gl.createVertexArray());
+  const u = (n) => gl.getUniformLocation(prog, n);
+  const hex = (n) => { const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue(n).trim().slice(1), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; };
+  gl.uniform3fv(u('uBase'), hex('--bg')); gl.uniform3fv(u('uR'), hex('--r')); gl.uniform3fv(u('uG'), hex('--g')); gl.uniform3fv(u('uB'), hex('--b'));
+
+  let W = 0, H = 0, k = 0.75 * Math.min(window.devicePixelRatio || 1, 1.5);
+  const mouse = [0, 0], goal = [0, 0];
+  let redraw = null;                                   // still mode repaints after a resize clears the canvas
+  function resize() {
+    W = Math.max(2, Math.round(innerWidth * k)); H = Math.max(2, Math.round(innerHeight * k));
+    canvas.width = W; canvas.height = H; gl.viewport(0, 0, W, H); gl.uniform2f(u('uRes'), W, H);
+    if (!goal[0]) { goal[0] = mouse[0] = W * 0.72; goal[1] = mouse[1] = H * 0.45; }
+    if (redraw) redraw();
+  }
+  resize(); addEventListener('resize', resize);
+  addEventListener('pointermove', (e) => { goal[0] = e.clientX * k; goal[1] = (innerHeight - e.clientY) * k; }, { passive: true });
+  const fade = () => 1 - 0.62 * Math.min(1, scrollY / innerHeight);
+  function draw(sec) {
+    mouse[0] += (goal[0] - mouse[0]) * 0.08; mouse[1] += (goal[1] - mouse[1]) * 0.08;
+    gl.uniform2f(u('uMouse'), mouse[0], mouse[1]); gl.uniform1f(u('uTime'), sec); gl.uniform1f(u('uFade'), fade());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  if (params.has('bgt') || reduce) {
+    redraw = () => draw(+(params.get('bgt') || 8));
+    redraw(); addEventListener('scroll', redraw, { passive: true }); return;
+  }
+  let last = 0;
+  (function tick(ts) {
+    requestAnimationFrame(tick);
+    if (document.hidden || ts - last < 33) return;      // ~30 fps is plenty for a background
+    last = ts; draw(ts / 1000);
+  })(0);
 })();
 </script>
 </body>
