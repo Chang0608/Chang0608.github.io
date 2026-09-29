@@ -409,134 +409,126 @@
 })();
 </script>
 <script>
-// ── Background: a lab reconstructed into its digital twin. Observations accumulate one object at a time; each point
-//    arrives noisy and converges onto the true geometry. After a while the twin dissolves back into noise and is
-//    rebuilt. The floor dots are the measurement paper, now in perspective.
+// ── Background: a lab and its digital twin, side by side. Left of the seam is the physical side as the sensors see it
+//    (dense points with live measurement noise); right of it is the twin (a clean wireframe with live telemetry).
+//    Both run in sync: the robot crosses the seam and changes representation, the arm moves the same on both sides.
 (() => {
   const host = document.getElementById('dtbg'), canvas = document.getElementById('dt3d');
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: true });
   if (!gl) return;
   const params = new URLSearchParams(location.search);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const still = params.has('scan') || reduce;
 
-  // scene points: kind 0 floor, 1 static object, 2 moving robot (local coords); each point also carries a random
-  // direction and the time it is first observed (objects arrive one after another, their points over ~2 s)
+  // points: kind 0 floor, 1 static, 2 robot (local coords); edge 1 = wireframe edge, 0 = surface sample
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const jit = (s) => (rnd() - 0.5) * 2 * s;
-  const P = [], K = [], R = [];
-  let T0 = 0;
-  const add = (x, y, z, k = 1, n = 0.012) => {
-    P.push(x + jit(n), y + jit(n), z + jit(n)); K.push(k);
-    let v = [jit(1), jit(1), jit(1)], l = Math.hypot(...v) || 1, m = 0.4 + 0.6 * rnd();
-    R.push(v[0] / l * m, v[1] / l * m, v[2] / l * m, T0 + rnd() * 2.2);
-  };
-  const next = () => { T0 = 0.2 + rnd() * 4.0; };               // a new object: pick when it starts being observed
+  const P = [], K = [], E = [], R = [];
+  const add = (x, y, z, k = 1, e = 1, n = 0.012) => { P.push(x + jit(n), y + jit(n), z + jit(n)); K.push(k); E.push(e); R.push(rnd() * 6.2832, 0.4 + rnd()); };
   const line = (a, b, step, k = 1) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), n = Math.max(1, Math.round(d / step));
-    for (let i = 0; i <= n; i++) { const t = i / n; add(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, k); } };
+    for (let i = 0; i <= n; i++) { const t = i / n; add(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, k, 1); } };
   function box(x0, y0, z0, w, h, d, k = 1, edge = 0.05, face = 0) {
     const c = [[0, 0, 0], [w, 0, 0], [0, h, 0], [0, 0, d], [w, h, 0], [w, 0, d], [0, h, d], [w, h, d]].map(([a, b, e]) => [x0 + a, y0 + b, z0 + e]);
     for (const [i, j] of [[0, 1], [0, 2], [0, 3], [1, 4], [1, 5], [2, 4], [2, 6], [3, 5], [3, 6], [4, 7], [5, 7], [6, 7]]) line(c[i], c[j], edge, k);
-    if (face) {
-      for (let x = x0 + face; x < x0 + w; x += face) for (let z = z0 + face; z < z0 + d; z += face) add(x, y0 + h, z, k, 0.02);
-      for (let x = x0 + face; x < x0 + w; x += face) for (let y = y0 + face; y < y0 + h; y += face) add(x, y, z0 + d, k, 0.02);
+    if (face) {                                                   // surfaces: what a sensor sees, not what a CAD model draws
+      for (let x = x0 + face; x < x0 + w; x += face) for (let z = z0 + face; z < z0 + d; z += face) add(x, y0 + h, z, k, 0, 0.02);
+      for (let x = x0 + face; x < x0 + w; x += face) for (let y = y0 + face; y < y0 + h; y += face) { add(x, y, z0 + d, k, 0, 0.02); add(x, y, z0, k, 0, 0.02); }
+      for (let z = z0 + face; z < z0 + d; z += face) for (let y = y0 + face; y < y0 + h; y += face) { add(x0, y, z, k, 0, 0.02); add(x0 + w, y, z, k, 0, 0.02); }
     }
   }
-  function tube(a, b, r, k = 1) {
-    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d), u = d.map(v => v / L);
+  function tubePts(a, b, r, rings, per, out) {                   // samples on a cylinder, written into out (used for the moving arm)
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d) || 1, u = d.map(v => v / L);
     const t = Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-    const v1 = [u[1] * t[2] - u[2] * t[1], u[2] * t[0] - u[0] * t[2], u[0] * t[1] - u[1] * t[0]], n1 = Math.hypot(...v1); v1.forEach((x, i) => v1[i] = x / n1);
+    let v1 = [u[1] * t[2] - u[2] * t[1], u[2] * t[0] - u[0] * t[2], u[0] * t[1] - u[1] * t[0]]; const n1 = Math.hypot(...v1); v1 = v1.map(x => x / n1);
     const v2 = [u[1] * v1[2] - u[2] * v1[1], u[2] * v1[0] - u[0] * v1[2], u[0] * v1[1] - u[1] * v1[0]];
-    for (let s = 0; s <= L; s += 0.025) for (let q = 0; q < 10; q++) {
-      const ang = q / 10 * Math.PI * 2, cs = Math.cos(ang) * r, sn = Math.sin(ang) * r;
-      add(a[0] + u[0] * s + v1[0] * cs + v2[0] * sn, a[1] + u[1] * s + v1[1] * cs + v2[1] * sn, a[2] + u[2] * s + v1[2] * cs + v2[2] * sn, k, 0.004);
-    }
+    for (let i = 0; i < rings; i++) { const s = L * i / (rings - 1);
+      for (let q = 0; q < per; q++) { const ang = q / per * Math.PI * 2, cs = Math.cos(ang) * r, sn = Math.sin(ang) * r;
+        out.push(a[0] + u[0] * s + v1[0] * cs + v2[0] * sn, a[1] + u[1] * s + v1[1] * cs + v2[1] * sn, a[2] + u[2] * s + v1[2] * cs + v2[2] * sn); } }
   }
-  // camera looks down at the floor like a map; objects are placed by where they should land on screen,
-  // so they frame the page and the centre stays open floor behind the text
+
+  // camera: looking down at the floor like a map; objects are placed by where they should land on screen
   const CAM = { target: [0, 0, 0], az: -0.55, el: 0.62, dist: 15, fov: 38 };
-  function camBasis(az, el, dist, target) {
-    const eye = [target[0] + dist * Math.cos(el) * Math.sin(az), target[1] + dist * Math.sin(el), target[2] + dist * Math.cos(el) * Math.cos(az)];
-    const f = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]], fl = Math.hypot(...f); f.forEach((v, i) => f[i] = v / fl);
-    const sx = [-f[2], 0, f[0]], sl = Math.hypot(...sx); sx.forEach((v, i) => sx[i] = v / sl);         // right = f × up
-    const up = [sx[1] * f[2] - sx[2] * f[1], sx[2] * f[0] - sx[0] * f[2], sx[0] * f[1] - sx[1] * f[0]];
-    return { eye, f, sx, up };
-  }
+  function eyeOf(az, el, dist, tg) { return [tg[0] + dist * Math.cos(el) * Math.sin(az), tg[1] + dist * Math.sin(el), tg[2] + dist * Math.cos(el) * Math.cos(az)]; }
   const aspect0 = innerWidth / innerHeight, tanH = Math.tan(CAM.fov / 2 * Math.PI / 180);
-  function floorAt(uu, vv) {                                            // screen (0..1, 0..1 from top) → point on the floor
-    const { eye, f, sx, up } = camBasis(CAM.az, CAM.el, CAM.dist, CAM.target);
+  function floorAt(uu, vv) {
+    const eye = eyeOf(CAM.az, CAM.el, CAM.dist, CAM.target);
+    const f = CAM.target.map((v, i) => v - eye[i]), fl = Math.hypot(...f); f.forEach((v, i) => f[i] = v / fl);
+    const sx = [-f[2], 0, f[0]], sl = Math.hypot(...sx); sx.forEach((v, i) => sx[i] = v / sl);
+    const up = [sx[1] * f[2] - sx[2] * f[1], sx[2] * f[0] - sx[0] * f[2], sx[0] * f[1] - sx[1] * f[0]];
     const x = (uu * 2 - 1) * tanH * aspect0, y = (1 - vv * 2) * tanH;
     const d = [f[0] + sx[0] * x + up[0] * y, f[1] + sx[1] * x + up[1] * y, f[2] + sx[2] * x + up[2] * y];
     const t = d[1] < -1e-3 ? -eye[1] / d[1] : 60;
     return [eye[0] + d[0] * t, 0, eye[2] + d[2] * t];
   }
-  // floor: the measurement paper, over everything the camera can see
+  const at = floorAt;
+
+  // floor: the measurement paper
   const corners = [[-0.1, -0.05], [1.1, -0.05], [-0.1, 1.1], [1.1, 1.1]].map(([a, b]) => floorAt(a, b));
-  const fx = corners.map(c => c[0]), fz = corners.map(c => c[2]);
-  const clampR = (v) => Math.max(-45, Math.min(45, v));
-  for (let x = Math.round(clampR(Math.min(...fx))); x <= clampR(Math.max(...fx)); x += 0.6)
-    for (let z = Math.round(clampR(Math.min(...fz))); z <= clampR(Math.max(...fz)); z += 0.6) add(x, 0, z, 0, 0);
-  const at = (uu, vv) => floorAt(uu, vv);
-  // racks along the far edge, above the headline
+  const cl = (v) => Math.max(-45, Math.min(45, v)), fx = corners.map(c => c[0]), fz = corners.map(c => c[2]);
+  for (let x = Math.round(cl(Math.min(...fx))); x <= cl(Math.max(...fx)); x += 0.6)
+    for (let z = Math.round(cl(Math.min(...fz))); z <= cl(Math.max(...fz)); z += 0.6) add(x, 0, z, 0, 1, 0);
+  // racks along the far edge
+  const racks = [];
   for (const uu of [0.14, 0.4, 0.66]) {
-    next();
     const [cx, , cz] = at(uu, 0.13), w = 2.6, d = 0.7, rx = cx - w / 2, z0 = cz - d / 2;
+    racks.push([cx, 2.5, cz]);
     for (const [px, pz] of [[rx, z0], [rx + w, z0], [rx, z0 + d], [rx + w, z0 + d]]) line([px, 0, pz], [px, 2.4, pz], 0.05);
     for (const y of [0.15, 0.85, 1.55, 2.25]) box(rx, y, z0, w, 0.04, d, 1, 0.07);
     for (const y of [0.19, 0.89, 1.59]) for (let bx = rx + 0.15; bx < rx + w - 0.5; bx += 0.62 + rnd() * 0.3)
-      if (rnd() > 0.25) { const bw = 0.35 + rnd() * 0.25, bh = 0.25 + rnd() * 0.3; box(bx, y, z0 + 0.1, bw, bh, 0.5, 1, 0.06); }
+      if (rnd() > 0.25) { const bw = 0.35 + rnd() * 0.25, bh = 0.25 + rnd() * 0.3; box(bx, y, z0 + 0.1, bw, bh, 0.5, 1, 0.06, 0.12); }
   }
-  // pillars far back
-  for (const uu of [0.02, 0.53, 0.99]) { next(); const [x, , z] = at(uu, 0.02); box(x - 0.25, 0, z - 0.25, 0.5, 3.6, 0.5, 1, 0.06); }
-  // crates along the left edge and the bottom
+  for (const uu of [0.02, 0.53, 0.99]) { const [x, , z] = at(uu, 0.02); box(x - 0.25, 0, z - 0.25, 0.5, 3.6, 0.5, 1, 0.06, 0.18); }
   for (const [uu, vv, w, h, d] of [[0.03, 0.56, 1.1, 0.8, 1.0], [0.05, 0.74, 0.8, 0.55, 0.8], [0.36, 0.95, 1.2, 0.7, 1.0], [0.66, 0.97, 0.7, 0.5, 0.7], [0.93, 0.88, 1.0, 0.9, 1.2], [0.98, 0.72, 0.8, 0.6, 0.8]]) {
-    next(); const [x, , z] = at(uu, vv); box(x - w / 2, 0, z - d / 2, w, h, d, 1, 0.05, 0.2);
+    const [x, , z] = at(uu, vv); box(x - w / 2, 0, z - d / 2, w, h, d, 1, 0.05, 0.14);
   }
-  // a workbench with an arm on it, in the top-right corner (the hero figure's twin, in 3D)
-  {
-    next();
-    const [bx, , bz] = at(0.955, 0.17);
-    box(bx - 0.9, 0.74, bz - 0.45, 1.8, 0.05, 0.9, 1, 0.05, 0.2);
-    for (const [dx, dz] of [[-0.85, -0.4], [0.85, -0.4], [-0.85, 0.4], [0.85, 0.4]]) line([bx + dx, 0, bz + dz], [bx + dx, 0.74, bz + dz], 0.04);
-    const J = [[-0.4, 0.79, 0], [-0.4, 0.95, 0], [-0.22, 1.36, 0], [0.22, 1.42, 0], [0.42, 1.18, 0]].map(([x, y, z]) => [bx + x, y, bz + z]);
-    tube(J[0], J[1], 0.07); tube(J[1], J[2], 0.04); tube(J[2], J[3], 0.035); tube(J[3], J[4], 0.03);
+  // workbench (static) and the arm on it (moving; positions rewritten every frame)
+  const [bx, , bz] = at(0.87, 0.21);
+  box(bx - 0.9, 0.74, bz - 0.45, 1.8, 0.05, 0.9, 1, 0.05, 0.14);
+  for (const [dx, dz] of [[-0.85, -0.4], [0.85, -0.4], [-0.85, 0.4], [0.85, 0.4]]) line([bx + dx, 0, bz + dz], [bx + dx, 0.74, bz + dz], 0.04);
+  const ARM_BASE = [bx - 0.4, 0.79, bz], ARM_R = [0.07, 0.045, 0.04, 0.032], ARM_RINGS = 18, ARM_PER = 9;
+  function armJoints(q) {                                            // planar arm: absolute link angles from vertical
+    const L = [0.16, 0.46, 0.44, 0.2], th = [0, q[0], q[0] + q[1], q[0] + q[1] + q[2]];
+    const J = [ARM_BASE.slice()];
+    for (let i = 0; i < 4; i++) { const p = J[i]; J.push([p[0] + Math.sin(th[i]) * L[i], p[1] + Math.cos(th[i]) * L[i], p[2]]); }
+    return J;
   }
-  // a mobile robot that patrols the bottom edge (local coordinates, moved in the shader)
-  next();
-  box(-0.35, 0.06, -0.25, 0.7, 0.28, 0.5, 2, 0.04, 0.12);
-  tube([0, 0.34, 0], [0, 0.42, 0], 0.07, 2);
-  const AMR_A = at(0.22, 0.86), AMR_B = at(0.8, 0.84);
+  const armStart = K.length, armCount = 4 * ARM_RINGS * ARM_PER;
+  { const tmp = []; const J = armJoints([0.5, 1.4, 0.9]); for (let i = 0; i < 4; i++) tubePts(J[i], J[i + 1], ARM_R[i], ARM_RINGS, ARM_PER, tmp);
+    for (let i = 0; i < tmp.length; i += 3) add(tmp[i], tmp[i + 1], tmp[i + 2], 1, 1, 0); }
+  // the patrolling robot (local coordinates)
+  box(-0.35, 0.06, -0.25, 0.7, 0.28, 0.5, 2, 0.04, 0.1);
+  { const tmp = []; tubePts([0, 0.34, 0], [0, 0.44, 0], 0.07, 4, 12, tmp); for (let i = 0; i < tmp.length; i += 3) add(tmp[i], tmp[i + 1], tmp[i + 2], 2, 1, 0); }
+  const AMR_A = at(0.2, 0.86), AMR_B = at(0.82, 0.84);
 
   const VS = `#version 300 es
-  in vec3 aPos; in float aKind; in vec4 aRnd;
-  uniform mat4 uVP; uniform float uT, uPx, uLife, uFade; uniform vec2 uAmr;
-  out float vA, vFlash, vKind;
+  in vec3 aPos; in float aKind, aEdge; in vec2 aRnd;
+  uniform mat4 uVP; uniform float uTime, uPx, uFade, uSeam, uW; uniform vec2 uAmr;
+  out float vA, vKind, vReal;
   void main() {
     vec3 p = aPos;
     if (aKind > 1.5) p.xz += uAmr;
-    float a = 0.5, fresh = 0.0;
-    if (aKind > 0.5) {
-      float age = uT - aRnd.w;                               // time since this point was first observed
-      float settle = exp(-max(age, 0.0) * 1.5);              // 1 when new, 0 once it has converged
-      p += aRnd.xyz * 0.5 * (settle + (1.0 - uLife));        // noisy when new, and again as the twin dissolves
-      a = step(0.0, age) * smoothstep(0.0, 0.4, age) * uLife * 0.72;
-      fresh = step(0.0, age) * settle;
-    }
+    vec4 c0 = uVP * vec4(p, 1.0);
+    float real = step((c0.x / c0.w * 0.5 + 0.5) * uW, uSeam);          // left of the seam: the physical side
+    if (real > 0.5 && aKind > 0.5)                                        // live measurement noise
+      p += vec3(sin(uTime * 7.0 + aRnd.x), sin(uTime * 5.3 + aRnd.x * 1.7), cos(uTime * 6.1 + aRnd.x * 2.3)) * 0.014 * aRnd.y;
     vec4 c = uVP * vec4(p, 1.0);
     gl_Position = c;
     float fog = clamp(1.0 - (c.w - 12.0) / 30.0, 0.15, 1.0);
-    vA = a * fog * uFade; vFlash = fresh * 0.6; vKind = aKind;
-    gl_PointSize = clamp(uPx * 13.0 / c.w, 0.7 * uPx, 3.0 * uPx);
+    float a = aKind < 0.5 ? (real > 0.5 ? 0.5 : 0.36) : (real > 0.5 ? 0.62 : aEdge * 0.58);
+    vA = a * fog * uFade; vKind = aKind; vReal = real;
+    gl_PointSize = clamp(uPx * (real > 0.5 ? 1.0 : 0.8) * 13.0 / c.w, 0.7 * uPx, 3.0 * uPx);
   }`;
   const FS = `#version 300 es
   precision mediump float;
-  in float vA, vFlash, vKind;
-  uniform vec3 uFloorC, uObjC, uHot;
+  in float vA, vKind, vReal;
+  uniform vec3 uFloorC, uObjC, uTwinC;
   out vec4 o;
   void main() {
+    if (vA < 0.002) discard;
     vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q);
     if (r > 1.0) discard;
-    vec3 c = mix(vKind < 0.5 ? uFloorC : uObjC, uHot, clamp(vFlash, 0.0, 1.0));
+    vec3 c = vKind < 0.5 ? mix(uFloorC, uTwinC, (1.0 - vReal) * 0.3) : (vReal > 0.5 ? uObjC : uTwinC);
     o = vec4(c, vA * smoothstep(1.0, 0.55, r));
   }`;
   const prog = gl.createProgram();
@@ -548,62 +540,113 @@
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
   gl.useProgram(prog);
-  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
-  const buf = (data, loc, size) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0); };
-  buf(P, gl.getAttribLocation(prog, 'aPos'), 3); buf(K, gl.getAttribLocation(prog, 'aKind'), 1); buf(R, gl.getAttribLocation(prog, 'aRnd'), 4);
+  gl.bindVertexArray(gl.createVertexArray());
+  const posData = new Float32Array(P);
+  const posBuf = gl.createBuffer();
+  const attr = (buf, data, name, size, usage) => { gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, data, usage); const l = gl.getAttribLocation(prog, name); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 0, 0); };
+  attr(posBuf, posData, 'aPos', 3, gl.DYNAMIC_DRAW);
+  attr(gl.createBuffer(), new Float32Array(K), 'aKind', 1, gl.STATIC_DRAW);
+  attr(gl.createBuffer(), new Float32Array(E), 'aEdge', 1, gl.STATIC_DRAW);
+  attr(gl.createBuffer(), new Float32Array(R), 'aRnd', 2, gl.STATIC_DRAW);
   const COUNT = K.length;
-  const u = {}; for (const n of ['uVP', 'uT', 'uPx', 'uLife', 'uFade', 'uAmr', 'uFloorC', 'uObjC', 'uHot']) u[n] = gl.getUniformLocation(prog, n);
+  const u = {}; for (const n of ['uVP', 'uTime', 'uPx', 'uFade', 'uSeam', 'uW', 'uAmr', 'uFloorC', 'uObjC', 'uTwinC']) u[n] = gl.getUniformLocation(prog, n);
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   host.classList.add('gl');
 
   const rgb = (n) => { const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue(n).trim().slice(1), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; };
   let clear = [1, 1, 1];
-  function colours() { clear = rgb('--bg'); gl.uniform3fv(u.uFloorC, rgb('--ghost')); gl.uniform3fv(u.uObjC, rgb('--muted')); gl.uniform3fv(u.uHot, rgb('--accent')); }
-  colours(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { colours(); redraw && redraw(); });
+  function colours() { clear = rgb('--bg'); gl.uniform3fv(u.uFloorC, rgb('--ghost')); gl.uniform3fv(u.uObjC, rgb('--muted')); gl.uniform3fv(u.uTwinC, rgb('--accent')); }
+  colours();
 
-  // tiny matrix helpers
+  // matrices
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const norm = (a) => { const l = Math.hypot(...a); return a.map(v => v / l); }, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   function viewProj(eye, target, aspect) {
     const f = norm(sub(target, eye)), s = norm(cross(f, [0, 1, 0])), up = cross(s, f);
     const V = [s[0], up[0], -f[0], 0, s[1], up[1], -f[1], 0, s[2], up[2], -f[2], 0, -dot(s, eye), -dot(up, eye), dot(f, eye), 1];
-    const t = 1 / Math.tan(CAM.fov / 2 * Math.PI / 180), n = 0.1, fa = 160;
+    const t = 1 / tanH, n = 0.1, fa = 160;
     const Pm = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0];
     const M = new Float32Array(16);
     for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let x = 0; for (let k = 0; k < 4; k++) x += Pm[k * 4 + r] * V[c * 4 + k]; M[c * 4 + r] = x; }
     return M;
   }
+  const project = (M, p) => { const x = M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], y = M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], w = M[3] * p[0] + M[7] * p[1] + M[11] * p[2] + M[15];
+    return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; };
+
+  // overlay: the seam, its labels, and telemetry tags on the twin side
+  const ov = document.createElement('div'); ov.className = 'tw-ov';
+  ov.innerHTML = '<i class="seam"></i><span class="side l">Physical</span><span class="side r">Digital twin</span>' +
+    '<span class="tag" data-k="amr"></span><span class="tag" data-k="arm"></span>';
+  host.appendChild(ov);
+  const seamEl = ov.querySelector('.seam'), sideL = ov.querySelector('.side.l'), sideR = ov.querySelector('.side.r');
+  const tags = Object.fromEntries([...ov.querySelectorAll('.tag')].map(t => [t.dataset.k, t]));
 
   let W = 0, H = 0, dpr = Math.min(devicePixelRatio || 1, 2), redraw = null;
-  function resize() { W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); canvas.width = W; canvas.height = H; gl.viewport(0, 0, W, H); gl.uniform1f(u.uPx, 2.1 * dpr); if (redraw) redraw(); }
+  function resize() { W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); canvas.width = W; canvas.height = H; gl.viewport(0, 0, W, H); gl.uniform1f(u.uPx, 2.1 * dpr); gl.uniform1f(u.uW, W); if (redraw) redraw(); }
   resize(); addEventListener('resize', resize);
-  const mouse = [0, 0], goal = [0, 0];
-  addEventListener('pointermove', (e) => { goal[0] = e.clientX / innerWidth - 0.5; goal[1] = e.clientY / innerHeight - 0.5; }, { passive: true });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { colours(); if (redraw) redraw(); });
+  const mouse = [0, 0], goal = [0, 0]; let seam = 0.5, lastMove = -1e9;
+  addEventListener('pointermove', (e) => { goal[0] = e.clientX / innerWidth - 0.5; goal[1] = e.clientY / innerHeight - 0.5; lastMove = performance.now(); }, { passive: true });
 
-  const TARGET = CAM.target, PERIOD = 14;
-  function draw(sec, cycleT, life) {
+  const armQ = (t) => [0.45 + 0.28 * Math.sin(t * 0.55), 1.35 + 0.3 * Math.sin(t * 0.55 + 1.1), 0.85 + 0.35 * Math.sin(t * 0.8 + 2.0)];
+  let tagTick = 0, figRect = null;
+  const figEl = document.querySelector('.field');
+  function draw(sec, now) {
     mouse[0] += (goal[0] - mouse[0]) * 0.05; mouse[1] += (goal[1] - mouse[1]) * 0.05;
     const k = Math.min(1, scrollY / innerHeight);
-    const az = CAM.az + mouse[0] * 0.12 + Math.sin(sec * 0.06) * 0.03, el = CAM.el + mouse[1] * 0.04 + k * 0.1, dist = CAM.dist + k * 2.5;
-    const eye = [TARGET[0] + dist * Math.cos(el) * Math.sin(az), TARGET[1] + dist * Math.sin(el), TARGET[2] + dist * Math.cos(el) * Math.cos(az)];
-    gl.uniformMatrix4fv(u.uVP, false, viewProj(eye, TARGET, W / H));
-    const w = 0.5 + 0.5 * Math.sin(sec * 0.16);                          // the robot patrols the bottom edge
-    gl.uniform2f(u.uAmr, AMR_A[0] + (AMR_B[0] - AMR_A[0]) * w, AMR_A[2] + (AMR_B[2] - AMR_A[2]) * w);
-    gl.uniform1f(u.uT, cycleT); gl.uniform1f(u.uLife, life); gl.uniform1f(u.uFade, 1 - 0.55 * k);
+    const az = CAM.az + mouse[0] * 0.1 + Math.sin(sec * 0.06) * 0.03, el = CAM.el + mouse[1] * 0.035 + k * 0.1, dist = CAM.dist + k * 2.5;
+    const M = viewProj(eyeOf(az, el, dist, CAM.target), CAM.target, W / H);
+    gl.uniformMatrix4fv(u.uVP, false, M);
+
+    // the seam drifts slowly; on a desktop it leans toward the cursor while you move it
+    const drift = 0.52 + 0.16 * Math.sin(sec * 0.11);
+    const want = (now - lastMove < 3000) ? Math.min(0.86, Math.max(0.14, goal[0] + 0.5)) : drift;
+    seam += (want - seam) * (still ? 1 : 0.03);
+    gl.uniform1f(u.uSeam, seam * W);
+
+    // the robot patrols; the arm works; both sides share the same state
+    const w = 0.5 + 0.5 * Math.sin(sec * 0.16), amr = [AMR_A[0] + (AMR_B[0] - AMR_A[0]) * w, AMR_A[2] + (AMR_B[2] - AMR_A[2]) * w];
+    gl.uniform2f(u.uAmr, amr[0], amr[1]);
+    const q = armQ(sec), J = armJoints(q), tmp = [];
+    for (let i = 0; i < 4; i++) tubePts(J[i], J[i + 1], ARM_R[i], ARM_RINGS, ARM_PER, tmp);
+    posData.set(tmp, armStart * 3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf); gl.bufferSubData(gl.ARRAY_BUFFER, armStart * 12, posData, armStart * 3, armCount * 3);
+
+    gl.uniform1f(u.uTime, still ? 1.0 : sec); gl.uniform1f(u.uFade, 1 - 0.55 * k);
     gl.clearColor(clear[0], clear[1], clear[2], 1); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.POINTS, 0, COUNT);
+
+    // overlay
+    const sx = seam * innerWidth, fade = (1 - 0.6 * k).toFixed(3);
+    ov.style.opacity = fade;
+    seamEl.style.transform = `translateX(${sx.toFixed(1)}px)`;
+    sideL.style.transform = `translateX(${(sx - 14).toFixed(1)}px) translateX(-100%)`;
+    sideR.style.transform = `translateX(${(sx + 14).toFixed(1)}px)`;
+    const place = (el, p, text, dir = 1, dy = 0) => {                  // a tag hangs off its asset, never under the hero figure
+      if (text !== null) el.textContent = text;
+      const [x, y0] = project(M, p), y = y0 + dy, w = el.offsetWidth || 200, h = 18;
+      const L = dir > 0 ? x + 10 : x - 10 - w, R = L + w, T = y - h / 2, B = y + h / 2, f = figRect;
+      el.style.transform = `translate(${L.toFixed(1)}px, ${T.toFixed(1)}px)`;
+      const hit = f && R > f.left - 8 && L < f.right + 8 && B > f.top - 8 && T < f.bottom + 8;
+      el.classList.toggle('on', !hit && L > sx + 8 && R < innerWidth - 8 && T > 92 && B < innerHeight - 8);
+    };
+    const refresh = still || ++tagTick % 6 === 0;                       // numbers update ~10 times a second
+    if (refresh || !figRect) figRect = figEl ? figEl.getBoundingClientRect() : null;
+    const v = Math.abs(0.08 * Math.cos(sec * 0.16)) * Math.hypot(AMR_B[0] - AMR_A[0], AMR_B[2] - AMR_A[2]);
+    const deg = (r) => `${(r * 180 / Math.PI).toFixed(0)}°`;
+    place(tags.amr, [amr[0], 0, amr[1]], refresh ? `AMR-01 · x ${amr[0].toFixed(2)} m · z ${amr[1].toFixed(2)} m · ${v.toFixed(2)} m/s` : null, 1, 24);
+    place(tags.arm, [J[2][0], J[2][1] + 0.2, J[2][2]], refresh ? `ARM-01 · q ${deg(q[0])} ${deg(q[1] - Math.PI / 2)} ${deg(q[2] - 0.8)}` : null, -1, 14);
   }
-  if (params.has('scan') || reduce) {                                  // a still frame of the finished twin
-    const t = params.has('scan') ? +params.get('scan') : 10;
-    redraw = () => { mouse[0] = goal[0]; mouse[1] = goal[1]; draw(3, t, 1); };
+  if (still) {
+    const t = params.has('scan') ? +params.get('scan') : 6;
+    redraw = () => { mouse[0] = goal[0]; mouse[1] = goal[1]; draw(t, -1e9); };
     redraw(); addEventListener('scroll', redraw, { passive: true }); return;
   }
   const t0 = performance.now();
   (function tick(ts) {
     requestAnimationFrame(tick);
     if (document.hidden) return;
-    const sec = (ts - t0) / 1000, c = sec % PERIOD;
-    draw(sec, c, 1 - Math.min(1, Math.max(0, (c - 11.2) / 2.8)));   // hold, then dissolve back into noise
+    draw((ts - t0) / 1000, ts);
   })(t0);
 })();
 </script>
