@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="site.css">
 </head>
 <body>
+<div class="dt-bg" id="dtbg" aria-hidden="true"><i class="grid"></i><i class="rings"></i><i class="hits"></i><i class="beam"></i><i class="probe"></i></div>
 
 <nav>
   <div class="wrap">
@@ -320,6 +321,12 @@
   } else {
     tl.classList.add('play');
   }
+
+  // Background: the probe follows the cursor; the sweep fades as you read further down
+  const dtbg = document.getElementById('dtbg');
+  addEventListener('pointermove', (e) => { dtbg.style.setProperty('--mx', e.clientX + 'px'); dtbg.style.setProperty('--my', e.clientY + 'px'); }, { passive: true });
+  const bgFade = () => dtbg.style.setProperty('--fade', (1 - 0.6 * Math.min(1, scrollY / innerHeight)).toFixed(3));
+  addEventListener('scroll', bgFade, { passive: true }); bgFade();
 
   // Chapters: the pinned contents list follows the part you are reading
   const tocLinks = [...document.querySelectorAll('#toc a')];

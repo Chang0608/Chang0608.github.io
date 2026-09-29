@@ -234,6 +234,24 @@ footer .right { text-align: right; line-height: 2; }
   footer .right { text-align: left; }
 }
 
+/* ── Digital-twin background: measurement paper and a slow sensor sweep ── */
+@property --sweep { syntax: '<angle>'; inherits: true; initial-value: 20deg; }
+.dt-bg { --ox: 4%; --oy: 112%; --mx: -999px; --my: -999px; --fade: 1;
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; animation: sweep 10s linear infinite; }
+.dt-bg > i { position: absolute; inset: 0; }
+.dt-bg .grid { background-image: radial-gradient(circle, var(--field-dot) 0.9px, transparent 1.3px); background-size: 24px 24px; opacity: calc(.75 * var(--fade) + .25); }
+.dt-bg .rings { background: repeating-radial-gradient(circle at var(--ox) var(--oy), transparent 0 239px, color-mix(in srgb, var(--line) 80%, transparent) 239px 240px); opacity: calc(.7 * var(--fade)); }
+.dt-bg .hits { background-image: radial-gradient(circle, var(--accent) 1.1px, transparent 1.6px); background-size: 24px 24px; opacity: calc(.6 * var(--fade));
+  -webkit-mask-image: conic-gradient(from calc(var(--sweep) - 30deg) at var(--ox) var(--oy), transparent 0deg, rgba(0,0,0,.45) 25deg, #000 30deg, transparent 30.3deg);
+  mask-image: conic-gradient(from calc(var(--sweep) - 30deg) at var(--ox) var(--oy), transparent 0deg, rgba(0,0,0,.45) 25deg, #000 30deg, transparent 30.3deg); }
+.dt-bg .beam { background: conic-gradient(from var(--sweep) at var(--ox) var(--oy), color-mix(in srgb, var(--accent) 40%, transparent) 0deg .12deg, transparent .3deg); opacity: calc(.5 * var(--fade)); }
+.dt-bg .probe { background-image: radial-gradient(circle, var(--text) 1.1px, transparent 1.6px); background-size: 24px 24px; opacity: .45;
+  -webkit-mask-image: radial-gradient(circle 150px at var(--mx) var(--my), #000, transparent);
+  mask-image: radial-gradient(circle 150px at var(--mx) var(--my), #000, transparent); }
+@keyframes sweep { to { --sweep: 380deg; } }
+@media (prefers-reduced-motion: reduce) { .dt-bg { animation: none; } .dt-bg .hits, .dt-bg .beam { display: none; } }
+@media (max-width: 900px) { .dt-bg .probe { display: none; } }
+
 /* on phones, drop the least important nav link */
 @media (max-width: 520px) { nav .links a.m-hide { display: none; } }
 /* current page in the nav */
