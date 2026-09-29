@@ -281,7 +281,7 @@
       </div>
     </div>
 
-    <figure class="field" aria-label="Animation: a planned path, a drifting robot, and its digital twin nudging it back into alignment">
+    <figure class="field" aria-label="Animation: the real robot follows its own path, which is the ground truth; its digital twin starts on the planned path and is nudged until it follows the real robot">
       <svg viewBox="0 0 600 444" role="img" aria-hidden="true">
         <defs>
           <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -291,8 +291,8 @@
         <rect width="600" height="444" fill="url(#dots)"/>
         <line x1="70" y1="336" x2="530" y2="126" stroke="var(--accent)" stroke-width="1.1" stroke-dasharray="4 6" opacity=".8"/>
         <text x="318" y="268" font-family="JetBrains Mono, monospace" font-size="10.5" letter-spacing="1.6" fill="var(--muted)" transform="rotate(-24.5 318 268)">PLANNED PATH</text>
-        <polyline id="trail" fill="none" stroke="var(--warm)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        <polyline id="trail2" fill="none" stroke="var(--accent-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline id="trail" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline id="trail2" fill="none" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
         <circle id="twin" r="11" fill="none" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 3"/>
         <g id="bot">
           <circle r="6.5" fill="var(--text)"/>
@@ -304,13 +304,13 @@
         </g>
         <g font-family="JetBrains Mono, monospace" font-size="9.5" letter-spacing="1.4" fill="var(--muted)">
           <text x="56" y="360">START</text>
-          <text x="514" y="112">GOAL</text>
+          <text x="514" y="150">GOAL</text>
         </g>
       </svg>
       <span class="mark tl"></span><span class="mark tr"></span><span class="mark bl"></span><span class="mark br"></span>
-      <div class="cap top"><span>Fig. 01 · Sim vs. real</span><span class="status" id="status">sim ≠ real</span></div>
+      <div class="cap top"><span>Fig. 01 · Sim follows real</span><span class="status" id="status">sim ≠ real</span></div>
       <div class="cap bottom">
-        <span class="legend"><span><i style="background:var(--text)"></i>Real robot</span><span><i style="border:1px dashed var(--accent)"></i>Digital twin</span></span>
+        <span class="legend"><span><i style="background:var(--text)"></i>Real robot · ground truth</span><span><i style="border:1px dashed var(--accent)"></i>Digital twin</span></span>
       </div>
     </figure>
     <a class="scroll" href="#question" aria-label="Scroll to content"><span class="label">Scroll</span><i></i></a>
@@ -566,45 +566,49 @@
   else window.addEventListener('resize', updateToc);
   updateToc();
 
-  // Hero: a robot drifts off the planned path, then its twin nudges it back.
+  // Hero: the real robot is the ground truth and is never corrected.
+  // Its twin starts on the planned path (the ideal), then gets nudged until it follows the real robot.
   const A = { x: 70, y: 336 }, B = { x: 530, y: 126 };
   const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy);
-  const nx = dy / len, ny = -dx / len;      // normal (drift side)
+  const nx = dy / len, ny = -dx / len;      // normal to the plan
   const bot = document.getElementById('bot');
   const twin = document.getElementById('twin');
-  const trail = document.getElementById('trail');
-  const trail2 = document.getElementById('trail2');
+  const realTrail = document.getElementById('trail');
+  const twinTrail = document.getElementById('trail2');
   const status = document.getElementById('status');
-  const NUDGE = 0.42, DURATION = 8000, HOLD = 1800;
-  const DRIFT = 110 / NUDGE;                // straight diagonal drift, like the mower
-  const C = 0.07;                           // time constant of the correction
+  const NUDGE = 0.32, DURATION = 8000, HOLD = 1800;
+  const D = 80;                             // how far the real path bows away from the plan
+  const C = 0.06;                           // time constant of the nudge
 
-  function offset(t) {
-    if (t < NUDGE) return DRIFT * t;
-    // critically damped return: continuous position and slope at the nudge
-    const s = t - NUDGE, o0 = DRIFT * NUDGE, v0 = DRIFT;
-    return (o0 + (v0 + o0 / C) * s) * Math.exp(-s / C);
+  const realOff = (t) => D * Math.sin(Math.PI * t / 1.25);
+  // share of the sim-real gap still open: 1 before the nudge, then a critically damped close
+  function gapLeft(t) {
+    if (t < NUDGE) return 1;
+    const u = (t - NUDGE) / C;
+    return (1 + u) * Math.exp(-u);
   }
-  const pos = (t) => { const o = offset(t); return { x: A.x + dx * t + nx * o, y: A.y + dy * t + ny * o }; };
+  const twinOff = (t) => realOff(t) * (1 - gapLeft(t));
+  const at = (t, o) => ({ x: A.x + dx * t + nx * o, y: A.y + dy * t + ny * o });
   function heading(t) {
-    const h = 0.004, p0 = pos(Math.max(0, t - h)), p1 = pos(Math.min(1, t + h));
+    const h = 0.004, p0 = at(Math.max(0, t - h), realOff(Math.max(0, t - h))), p1 = at(Math.min(1, t + h), realOff(Math.min(1, t + h)));
     return Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
   }
   function draw(t) {
-    const p = pos(t);
+    const p = at(t, realOff(t)), q = at(t, twinOff(t));
     bot.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${heading(t).toFixed(1)})`);
-    twin.setAttribute('cx', (A.x + dx * t).toFixed(1));
-    twin.setAttribute('cy', (A.y + dy * t).toFixed(1));
-    const pts1 = [], pts2 = [];
+    twin.setAttribute('cx', q.x.toFixed(1));
+    twin.setAttribute('cy', q.y.toFixed(1));
+    const rp = [], tp = [];
     for (let s = 0; s <= t + 1e-9; s += 0.008) {
-      const q = pos(Math.min(s, t));
-      (s <= NUDGE ? pts1 : pts2).push(`${q.x.toFixed(1)},${q.y.toFixed(1)}`);
+      const u = Math.min(s, t), a = at(u, realOff(u)), b = at(u, twinOff(u));
+      rp.push(`${a.x.toFixed(1)},${a.y.toFixed(1)}`);
+      tp.push(`${b.x.toFixed(1)},${b.y.toFixed(1)}`);
     }
-    if (t > NUDGE) { const q = pos(NUDGE); pts2.unshift(`${q.x.toFixed(1)},${q.y.toFixed(1)}`); }
-    trail.setAttribute('points', pts1.join(' '));
-    trail2.setAttribute('points', pts2.join(' '));
-    const aligned = t > NUDGE && offset(t) < 6;
-    status.textContent = t < NUDGE ? 'sim ≠ real' : (aligned ? 'aligned' : 'nudging');
+    realTrail.setAttribute('points', rp.join(' '));
+    twinTrail.setAttribute('points', tp.join(' '));
+    const gap = realOff(t) * gapLeft(t);
+    const aligned = t > NUDGE && gap < 3;
+    status.textContent = t < NUDGE ? 'sim ≠ real' : (aligned ? 'sim ≈ real' : 'nudging sim');
     status.classList.toggle('ok', aligned);
   }
 
