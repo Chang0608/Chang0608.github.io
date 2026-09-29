@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kai-Chi Chang · Graphics</title>
+<meta name="description" content="Kai-Chi Chang (張凱淇): real-time graphics, ray tracing, and neural rendering. Does what holds offline still hold at sixty frames per second?">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23161718'/><text x='8' y='23.5' font-family='Helvetica,Arial,sans-serif' font-size='20' font-weight='700' fill='%23f2f2f0'>K</text><rect x='22' y='19.5' width='4' height='4' fill='%23c1121f'/></svg>">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://chang0608.github.io/graphics.html">
+<meta property="og:title" content="Kai-Chi Chang · Graphics">
+<meta property="og:description" content="Real-time graphics, ray tracing, and neural rendering. Does what holds offline still hold at sixty frames per second?">
+<meta name="theme-color" content="#e9e9e7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  /* The graphics page shares the brand but is allowed to play: an RGB motif, motion, and a live renderer. */
+  :root { --r: #e5484d; --g: #2f9e6e; --b: #3e63dd; --y: #f0a800; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --r: #ff6b6b; --g: #4cc38a; --b: #7c9cff; --y: #ffc53d; } }
+  :root[data-theme="dark"] { --r: #ff6b6b; --g: #4cc38a; --b: #7c9cff; --y: #ffc53d; }
+  @media (min-width: 901px) { .hero h1 { font-size: clamp(40px, 4.9vw, 82px); } }
+
+  /* headline: a little chromatic aberration on "Real time", with the occasional glitch */
+  .hero h1 .rt { display: inline; opacity: 1; transform: none; text-shadow: -0.03em 0 color-mix(in srgb, var(--r) 55%, transparent), 0.03em 0 color-mix(in srgb, var(--b) 55%, transparent); animation: aberr 7s 2.2s infinite; }
+  @keyframes aberr {
+    0%, 90%, 100% { text-shadow: -0.03em 0 color-mix(in srgb, var(--r) 55%, transparent), 0.03em 0 color-mix(in srgb, var(--b) 55%, transparent); }
+    92% { text-shadow: -0.09em 0.02em color-mix(in srgb, var(--r) 70%, transparent), 0.08em -0.02em color-mix(in srgb, var(--b) 70%, transparent); }
+    94% { text-shadow: 0.06em 0 color-mix(in srgb, var(--g) 65%, transparent), -0.05em 0 color-mix(in srgb, var(--r) 65%, transparent); }
+    96% { text-shadow: -0.02em 0 color-mix(in srgb, var(--r) 55%, transparent), 0.02em 0 color-mix(in srgb, var(--b) 55%, transparent); }
+  }
+
+  /* live renderer */
+  .field canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; }
+  .field canvas:active { cursor: grabbing; }
+  .field .nogl { position: absolute; inset: 0; display: none; place-items: center; text-align: center; padding: 24px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .field.no-webgl .nogl { display: grid; }
+  .field .cap { z-index: 1; pointer-events: none; }
+  .field .cap .modes, .field .cap button { pointer-events: auto; }
+  .field .spp { color: var(--r); transition: color .6s; }
+  .field .spp.ok { color: var(--g); }
+  .modes { display: inline-flex; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(6px); }
+  .modes button { font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--muted); background: none; border: 0; padding: 5px 10px; cursor: pointer; transition: background-color .4s var(--ease), color .4s var(--ease); }
+  .modes button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+  .field .hint { background: color-mix(in srgb, var(--surface) 70%, transparent); padding: 2px 6px; }
+
+  /* ticker of the vocabulary this line of work lives in */
+  .ticker { position: relative; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 0; margin: 0 calc(-1 * var(--gutter)); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+  .ticker .track { display: flex; width: max-content; animation: tick 60s linear infinite; }
+  .ticker span { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; }
+  .ticker i { width: 6px; height: 6px; border-radius: 50%; margin: 0 22px; display: inline-block; }
+  .ticker span:nth-child(3n+1) i { background: var(--r); } .ticker span:nth-child(3n+2) i { background: var(--g); } .ticker span:nth-child(3n) i { background: var(--b); }
+  .ticker:hover .track { animation-play-state: paused; }
+  @keyframes tick { to { transform: translateX(-50%); } }
+
+  /* RGB motif on the timeline and the work rows */
+  .timeline::after { background: linear-gradient(var(--r), var(--g) 50%, var(--b)); }
+  .timeline.play li:nth-child(3n+1)::after { background: var(--r); border-color: var(--r); }
+  .timeline.play li:nth-child(3n+2)::after { background: var(--g); border-color: var(--g); }
+  .timeline.play li:nth-child(3n)::after { background: var(--b); border-color: var(--b); }
+  .row { --c: var(--r); }
+  .row.c-g { --c: var(--g); } .row.c-b { --c: var(--b); } .row.c-y { --c: var(--y); }
+  .row .n { align-self: start; justify-self: start; padding: 2px 8px; margin-top: 4px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); transition: background-color .5s var(--ease), color .5s var(--ease); }
+  .row:hover .n { color: var(--bg); background: var(--c); }
+  .row::before { height: 2px; background: linear-gradient(90deg, var(--r), var(--g), var(--b)); }
+  .row .meta .hi::before { background: var(--c); }
+  .thesis em { color: var(--r); }
+  h2 .ghost { background: linear-gradient(90deg, var(--ghost), var(--ghost)); -webkit-background-clip: text; background-clip: text; }
+  .back { margin-top: 26px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero h1 .rt { animation: none; }
+    .ticker .track { animation: none; }
+  }
+  @media (max-width: 520px) { .field .hint { display: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="name" href="index.html">Kai-Chi Chang</a>
+    <div class="links">
+      <a href="index.html">Digital twins</a>
+      <a href="graphics.html" aria-current="page">Graphics</a>
+      <a class="m-hide" href="index.html#more">Honors</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap" id="top">
+
+  <!-- 1 · cover -->
+  <header class="hero">
+    <div>
+      <p class="label after">Real-time graphics · Ray tracing · Neural rendering</p>
+      <h1><span class="ideal">Offline is easy.</span><span class="real"><span class="rt">Real time</span> is the work.</span></h1>
+      <div class="after">
+        <p class="who"><b>Kai-Chi Chang</b><span class="zh">張凱淇</span><span class="role">The second line of my work: the same question, asked of a frame budget.</span></p>
+        <div class="cta">
+          <a class="btn primary" href="#gwork">See the work <span class="arr">→</span></a>
+          <a class="btn ghost" href="index.html">Digital twins</a>
+        </div>
+      </div>
+    </div>
+
+    <figure class="field" id="ptfig" aria-label="A path tracer running live in the browser. Offline mode lets the image converge; real-time mode moves the scene with one sample per pixel per frame and temporal accumulation. Drag to orbit.">
+      <canvas id="pt"></canvas>
+      <div class="nogl">This figure needs WebGL 2</div>
+      <span class="mark tl"></span><span class="mark tr"></span><span class="mark bl"></span><span class="mark br"></span>
+      <div class="cap top"><span>Fig. 02 · Path traced live, in your browser</span><span class="status spp" id="spp">1 spp</span></div>
+      <div class="cap bottom">
+        <span class="modes" role="group" aria-label="Rendering mode"><button type="button" data-mode="offline" aria-pressed="true">Offline</button><button type="button" data-mode="realtime" aria-pressed="false">Real time</button></span>
+        <span class="hint" id="ms">drag to orbit</span>
+      </div>
+    </figure>
+    <a class="scroll" href="#gquestion" aria-label="Scroll to content"><span class="label">Scroll</span><i></i></a>
+  </header>
+
+  <div class="ticker" aria-hidden="true"><div class="track">
+    <span>Ray tracing<i></i></span><span>BLAS &amp; TLAS<i></i></span><span>Shader tables<i></i></span><span>Hybrid rendering<i></i></span><span>Denoising<i></i></span><span>Neural radiance caching<i></i></span><span>SPIR-V<i></i></span><span>Cooperative matrices<i></i></span><span>D3D12 ↔ CUDA<i></i></span><span>Frame interpolation<i></i></span><span>3D Gaussian Splatting<i></i></span><span>Mesh simplification<i></i></span><span>Scientific visualization<i></i></span>
+    <span>Ray tracing<i></i></span><span>BLAS &amp; TLAS<i></i></span><span>Shader tables<i></i></span><span>Hybrid rendering<i></i></span><span>Denoising<i></i></span><span>Neural radiance caching<i></i></span><span>SPIR-V<i></i></span><span>Cooperative matrices<i></i></span><span>D3D12 ↔ CUDA<i></i></span><span>Frame interpolation<i></i></span><span>3D Gaussian Splatting<i></i></span><span>Mesh simplification<i></i></span><span>Scientific visualization<i></i></span>
+  </div></div>
+
+  <!-- 2 · the question, for frames -->
+  <section class="page" id="gquestion">
+    <div class="sec">
+      <div class="sec-head"><span class="label">The question</span></div>
+      <div>
+        <p class="thesis reveal">In real time, a result is only as good as the frame it arrives in. A model that is faster in a benchmark can be <em>slower</em> in a renderer, and a cache that saves work on one GPU can cost more on another.</p>
+        <p class="thesis-sub reveal">So I ask graphics the same question I ask robots: does what holds offline still hold at sixty frames per second, on the hardware people actually use? The figure above is a small version of it. Offline, the image converges. In real time, every frame gets one sample per pixel, and the trade-off shows up as noise and ghosting, traced on your own GPU a moment ago.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · the line -->
+  <section class="page" id="gline">
+    <div class="sec">
+      <div class="sec-head"><span class="idx">01</span><span class="label">The line</span></div>
+      <div>
+        <h2>From the metal up, <span class="ghost">then into the loop.</span></h2>
+        <ol class="timeline" id="timeline">
+          <li class="reveal"><div class="when">2025.09</div><div class="what"><b>Chose modern graphics.</b> <span>OpenGL, Direct3D 12, and Vulkan, as a second track beside digital twins.</span></div></li>
+          <li class="reveal"><div class="when">2025.12</div><div class="what"><b>Took ray tracing apart.</b> <span>Microsoft's official DirectX Raytracing samples, rebuilt into an eight-unit course.</span></div></li>
+          <li class="reveal"><div class="when">2026.05</div><div class="what"><b>A network inside a live renderer.</b> <span>Frame interpolation embedded in a Direct3D 12 render loop.</span></div></li>
+          <li class="reveal"><div class="when">2026.06</div><div class="what"><b>A network that trains every frame.</b> <span>Neural Radiance Caching, first on the desktop, then on a phone GPU.</span></div></li>
+          <li class="reveal"><div class="when">2026.09</div><div class="what"><b>Teaching graphics.</b> <span>TA for Graphics Programming and Applications.</span></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · work -->
+  <section class="flow" id="gwork">
+    <div class="sec">
+      <div class="sec-head">
+        <span class="idx">02</span><span class="label">Graphics work</span>
+        <ul class="toc" id="toc"><li><a href="#g-rt">Ray tracing</a></li><li><a href="#g-neural">Neural rendering</a></li><li><a href="#g-geo">Geometry &amp; data</a></li></ul>
+      </div>
+      <div>
+        <h2>Five pieces, <span class="ghost">one frame budget.</span></h2>
+
+        <div class="part-group" id="g-rt">
+          <div class="part"><span class="label">Ray tracing</span><span class="pt">From the metal up.</span></div>
+          <article class="row reveal">
+            <span class="n">G1</span>
+            <div>
+              <p class="label proj">DXR 101</p>
+              <h3>Ray tracing, from the metal up</h3>
+              <p class="desc">Microsoft's official DirectX Raytracing samples, taken apart into an eight-unit course: from rays and intersections to acceleration structures and shader tables, then hybrid rendering and denoising a one-sample image. Everything the rasterizer used to do for you, done by hand.</p>
+            </div>
+            <ul class="meta"><li class="hi">Course material</li><li>DirectX Raytracing</li><li>Direct3D 12</li></ul>
+          </article>
+        </div>
+
+        <div class="part-group" id="g-neural">
+          <div class="part"><span class="label">Neural rendering</span><span class="pt">Into the loop.</span></div>
+          <article class="row c-g reveal">
+            <span class="n">G2</span>
+            <div>
+              <p class="label proj">Neural frame interpolation</p>
+              <h3>When faster isn't faster</h3>
+              <p class="desc">A frame-interpolation network embedded in a Direct3D 12 render loop, with frames shared between D3D12 and CUDA without copies. The back end that was faster in isolation turned out slower in the pipeline: a model's speed belongs to the system it runs in.</p>
+            </div>
+            <ul class="meta"><li class="hi">NSTC-funded</li><li>D3D12 · CUDA</li><li>Inference back ends</li></ul>
+          </article>
+          <article class="row c-b reveal">
+            <span class="n">G3</span>
+            <div>
+              <p class="label proj">Neural Radiance Caching</p>
+              <h3>A network that trains every frame</h3>
+              <p class="desc">In NVIDIA's open-source RTXGI, a small network is trained and queried while the renderer runs. I removed a GPU-wide serialization on the desktop, then ported the full training loop to a phone GPU and measured where it does not yet pay off.</p>
+            </div>
+            <ul class="meta"><li class="hi">Open-source RTXGI</li><li>Vulkan · SPIR-V</li><li>On-device training</li></ul>
+          </article>
+        </div>
+
+        <div class="part-group" id="g-geo">
+          <div class="part"><span class="label">Geometry &amp; data</span><span class="pt">Pictures a machine can use.</span></div>
+          <article class="row c-y reveal">
+            <span class="n">G4</span>
+            <div>
+              <p class="label proj">Simulation-ready scenes</p>
+              <h3>From splats to surfaces</h3>
+              <p class="desc">3D Gaussian Splatting reconstructions turned into lightweight, planar meshes a robot can collide against: tiled parallel simplification, mesh denoising, and plane fitting.</p>
+            </div>
+            <ul class="meta"><li class="hi">Used in Isaac Sim</li><li>Geometry processing</li><li>3D Gaussian Splatting</li></ul>
+          </article>
+          <article class="row reveal">
+            <span class="n">G5</span>
+            <div>
+              <p class="label proj">IEEE SciVis Contest 2026</p>
+              <h3>Reading a simulated ocean</h3>
+              <p class="desc">A first-author visualization of a petascale ocean simulation: where strong vertical motion occurs relative to layered water masses.</p>
+            </div>
+            <ul class="meta"><li class="hi">Top entry</li><li>Scientific visualization</li><li>IEEE VIS 2026</li></ul>
+          </article>
+        </div>
+        <p class="back"><a class="btn ghost" href="index.html">← Back to digital twins</a></p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      <p class="sig">Kai-Chi Chang <span>張凱淇</span></p>
+      <span class="mail"><a href="mailto:caillou0608@gmail.com">caillou0608@gmail.com</a></span>
+      <span class="affil">Computer Graphics &amp; Visualization Lab, NTHU · advised by <a href="https://cgv.cs.nthu.edu.tw/hkchu/" target="_blank" rel="noopener">Prof. Hung-Kuo Chu</a></span>
+    </div>
+    <div class="right">
+      <span class="label">Project code stays with its lab or competition</span><br>
+      <span class="label" style="color:var(--ghost)">Last updated 2026.09</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const hasIO = 'IntersectionObserver' in window;
+
+  // Scroll reveal, gently staggered among siblings
+  const els = document.querySelectorAll('.reveal');
+  els.forEach(el => {
+    const sibs = [...el.parentElement.children].filter(c => c.classList.contains('reveal'));
+    el.style.transitionDelay = Math.min(sibs.indexOf(el), 4) * 70 + 'ms';
+  });
+  if (hasIO && !reduce) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    els.forEach(el => io.observe(el));
+  } else {
+    els.forEach(el => el.classList.add('in'));
+  }
+
+  // Timeline draws itself once; each node lights up as the line reaches it
+  const tl = document.getElementById('timeline');
+  const DUR = 2.4, LEAD = 0.2;
+  function timeNodes() {
+    const span = tl.offsetHeight - 24;
+    tl.querySelectorAll('li').forEach(li => {
+      const y = li.offsetTop + parseFloat(getComputedStyle(li, '::after').top) + 3.5 - 12;
+      li.style.setProperty('--at', (LEAD + DUR * Math.max(0, y) / span).toFixed(2) + 's');
+    });
+  }
+  timeNodes();
+  if (hasIO && !reduce) {
+    const tio = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) { timeNodes(); tl.classList.add('play'); tio.disconnect(); }
+    }, { threshold: 0.35 });
+    tio.observe(tl);
+  } else {
+    tl.classList.add('play');
+  }
+
+  // Pinned contents list follows the part you are reading
+  const tocLinks = [...document.querySelectorAll('#toc a')];
+  const groups = [...document.querySelectorAll('.part-group')];
+  function updateToc() {
+    const line = window.innerHeight * 0.4;
+    let cur = groups[0];
+    groups.forEach(g => { if (g.getBoundingClientRect().top < line) cur = g; });
+    tocLinks.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + cur.id));
+  }
+  let tocQueued = false;
+  window.addEventListener('scroll', () => {
+    if (tocQueued) return;
+    tocQueued = true;
+    requestAnimationFrame(() => { tocQueued = false; updateToc(); });
+  }, { passive: true });
+  if ('ResizeObserver' in window) new ResizeObserver(updateToc).observe(document.body);
+  updateToc();
+})();
+
+// ── Fig. 02: a progressive path tracer (WebGL 2) with an offline and a real-time mode.
+(() => {
+  const fig = document.getElementById('ptfig'), canvas = document.getElementById('pt');
+  const sppEl = document.getElementById('spp'), msEl = document.getElementById('ms');
+  const modeBtns = [...fig.querySelectorAll('.modes button')];
+  const params = new URLSearchParams(location.search);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+  if (!gl) { fig.classList.add('no-webgl'); return; }
+  const floatTargets = !!gl.getExtension('EXT_color_buffer_float');
+  const N = 6;                                         // spheres
+
+  const VS = `#version 300 es
+  void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+
+  const TRACE = `#version 300 es
+  precision highp float;
+  uniform sampler2D uPrev;
+  uniform vec2 uRes;
+  uniform float uFrame, uAlpha;
+  uniform vec3 uEye, uTarget;
+  uniform vec3 uFloor, uHorizon, uTop, uKey, uRim;
+  uniform vec4 uS[${N}];        // centre, radius
+  uniform vec3 uAlb[${N}];
+  uniform int uMat[${N}];       // 0 coated diffuse, 1 metal, 2 glass, 3 emissive, 4 diffuse
+  uniform float uRough[${N}];
+  out vec4 outColor;
+
+  uint seed;
+  uint pcg() { seed = seed * 747796405u + 2891336453u; uint w = ((seed >> ((seed >> 28u) + 4u)) ^ seed) * 277803737u; return (w >> 22u) ^ w; }
+  float rnd() { return float(pcg()) * (1.0 / 4294967296.0); }
+  vec3 rndUnit() { float z = rnd() * 2.0 - 1.0, a = rnd() * 6.2831853, r = sqrt(max(0.0, 1.0 - z * z)); return vec3(r * cos(a), r * sin(a), z); }
+
+  vec3 env(vec3 d, bool primary) {
+    vec3 c = mix(uHorizon, uTop, smoothstep(-0.05, 0.9, d.y));
+    if (primary) return c;                                                     // lights and cards live off camera
+    if (d.y > 0.70 && abs(d.x + 0.25) < 0.42 && abs(d.z - 0.05) < 0.36) c += uKey;     // softbox overhead
+    if (d.x > 0.84 && abs(d.y - 0.22) < 0.20) c += uRim;                     // strip light at the side
+    if (d.x < -0.55 && d.y > -0.05 && d.y < 0.42) c *= 0.12;                 // black card, left
+    if (d.z < -0.80 && d.y > 0.05 && d.y < 0.30) c *= 0.35;                  // black card, behind
+    return c;
+  }
+  float schlick(float c, float r0) { return r0 + (1.0 - r0) * pow(1.0 - c, 5.0); }
+
+  vec3 radiance(vec3 ro, vec3 rd) {
+    vec3 thr = vec3(1.0), acc = vec3(0.0);
+    for (int b = 0; b < 7; b++) {
+      float t = 1e9; vec3 n = vec3(0.0); int hit = -1;
+      if (rd.y < -1e-5) { float tf = -ro.y / rd.y; if (tf > 1e-3) { t = tf; n = vec3(0.0, 1.0, 0.0); hit = 99; } }
+      for (int i = 0; i < ${N}; i++) {
+        vec4 s = uS[i];
+        vec3 oc = ro - s.xyz; float bb = dot(oc, rd), cc = dot(oc, oc) - s.w * s.w, h = bb * bb - cc;
+        if (h < 0.0) continue;
+        h = sqrt(h); float t0 = -bb - h; if (t0 < 1e-3) t0 = -bb + h;
+        if (t0 > 1e-3 && t0 < t) { t = t0; n = (ro + rd * t0 - s.xyz) / s.w; hit = i; }
+      }
+      if (hit < 0) { acc += thr * env(rd, b == 0); break; }
+      vec3 p = ro + rd * t;
+      if (hit == 99) {
+        float f = smoothstep(5.0, 16.0, length(p.xz));                       // the floor melts into the backdrop
+        acc += thr * f * uHorizon; thr *= (1.0 - f) * uFloor;
+        rd = normalize(n + rndUnit());
+      } else {
+        int mt = uMat[hit]; vec3 alb = uAlb[hit]; float rough = uRough[hit];
+        if (mt == 3) { acc += thr * alb; break; }
+        if (mt == 2) {
+          bool inside = dot(rd, n) > 0.0; vec3 nn = inside ? -n : n; float eta = inside ? 1.5 : 1.0 / 1.5;
+          float cosi = min(dot(-rd, nn), 1.0), sin2 = eta * eta * (1.0 - cosi * cosi);
+          if (sin2 > 1.0 || rnd() < schlick(cosi, 0.04)) rd = reflect(rd, nn); else rd = refract(rd, nn, eta);
+          thr *= vec3(0.98);
+        } else if (mt == 1) {
+          rd = normalize(reflect(rd, n) + rough * rndUnit()); thr *= alb;
+          if (dot(rd, n) <= 0.0) break;
+        } else if (mt == 0 && rnd() < schlick(max(dot(-rd, n), 0.0), 0.04)) {
+          rd = normalize(reflect(rd, n) + rough * rndUnit());
+          if (dot(rd, n) <= 0.0) break;
+        } else {
+          rd = normalize(n + rndUnit()); thr *= alb;
+        }
+      }
+      ro = p + rd * 2e-3;
+      if (b > 2) { float q = max(thr.r, max(thr.g, thr.b)); if (rnd() > q) break; thr /= q; }
+    }
+    return acc;
+  }
+
+  void main() {
+    seed = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + uint(uFrame) * 26699u | 1u;
+    vec3 fw = normalize(uTarget - uEye), rt = normalize(cross(fw, vec3(0.0, 1.0, 0.0))), up = cross(rt, fw);
+    vec2 q = (gl_FragCoord.xy + vec2(rnd(), rnd()) - 0.5 - 0.5 * uRes) / uRes.y;
+    vec3 c = min(radiance(uEye, normalize(fw * 2.0 + rt * q.x + up * q.y)), vec3(16.0));   // clamp fireflies
+    vec3 prev = texelFetch(uPrev, ivec2(gl_FragCoord.xy), 0).rgb;
+    outColor = vec4(mix(prev, c, uAlpha), 1.0);
+  }`;
+
+  const SHOW = `#version 300 es
+  precision highp float;
+  uniform sampler2D uAcc;
+  out vec4 outColor;
+  void main() {
+    vec3 c = texelFetch(uAcc, ivec2(gl_FragCoord.xy), 0).rgb;
+    c = 1.0 - exp(-c);                                  // the backdrop maps exactly onto the page surface
+    outColor = vec4(pow(c, vec3(1.0 / 2.2)), 1.0);
+  }`;
+
+  function program(fs) {
+    const p = gl.createProgram();
+    for (const [type, src] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, fs]]) {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      gl.attachShader(p, s);
+    }
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  let trace, show;
+  try { trace = program(TRACE); show = program(SHOW); } catch (e) { fig.classList.add('no-webgl'); console.warn(e); return; }
+  gl.bindVertexArray(gl.createVertexArray());
+  const U = {}; for (const n of ['uPrev', 'uRes', 'uFrame', 'uAlpha', 'uEye', 'uTarget', 'uFloor', 'uHorizon', 'uTop', 'uKey', 'uRim', 'uS', 'uAlb', 'uMat', 'uRough']) U[n] = gl.getUniformLocation(trace, n);
+
+  // colours from the page palette, so the render sits on the page in light and dark mode
+  const lin = (hex) => { const v = parseInt(hex.trim().slice(1), 16); return [16, 8, 0].map(s => { const c = ((v >> s) & 255) / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); };
+  const invCurve = (c) => c.map(x => -Math.log(1 - Math.min(x, 0.995)));   // radiance that the display curve maps back to c
+  const REST = [[-1.25, 0.55, 0.25, 0.55], [0.2, 0.78, -0.45, 0.78], [1.35, 0.46, 0.6, 0.46], [-0.2, 0.3, 1.25, 0.3], [0.78, 0.24, 1.38, 0.24], [-2.15, 0.32, -0.55, 0.32]];
+  function palette() {
+    const cs = getComputedStyle(document.documentElement), v = (n) => lin(cs.getPropertyValue(n));
+    const surface = v('--surface'), accent = v('--accent'), H = invCurve(surface);
+    const dark = surface[0] + surface[1] + surface[2] < 0.3;
+    if (!dark) return { dark, uHorizon: H, uTop: H.map(x => x * 1.1), uKey: [5.5, 5.5, 5.4], uRim: [2.6, 2.6, 2.6], uFloor: [0.8, 0.8, 0.79],
+      alb: [accent, [0.86, 0.86, 0.85], [1, 1, 1], v('--b'), v('--y'), [0.86, 0.86, 0.85]], mat: [0, 1, 2, 0, 0, 4], rough: [0.04, 0.05, 0, 0.05, 0.05, 0] };
+    const warm = accent.map(x => 0.45 * x + 0.55 * 0.8);
+    return { dark, uHorizon: H, uTop: H.map(x => x * 1.6), uKey: warm.map(x => x * 3.4), uRim: accent.map(x => x * 1.3), uFloor: [0.2, 0.2, 0.2],
+      alb: [accent.map(x => Math.min(1, x * 1.15)), [0.72, 0.71, 0.7], [1, 1, 1], v('--b'), v('--y').map(x => x * 3.6), [0.8, 0.8, 0.8]], mat: [1, 1, 2, 0, 3, 4], rough: [0.22, 0.05, 0, 0.05, 0, 0] };
+  }
+  let pal = palette();
+
+  // camera
+  const TARGET = [0.05, 0.5, 0.3];
+  const PRESETS = [[0.42, 0.22, 6.5], [-0.62, 0.17, 6.1], [1.18, 0.30, 6.7]];
+  let preset = +(params.get('view') || 0) % PRESETS.length;
+  let [az, el, dist] = PRESETS[preset];
+  const eye = () => [TARGET[0] + dist * Math.cos(el) * Math.sin(az), TARGET[1] + dist * Math.sin(el), TARGET[2] + dist * Math.cos(el) * Math.cos(az)];
+
+  // spheres: at rest offline, bouncing in real time
+  function spheres(time) {
+    const out = new Float32Array(N * 4);
+    REST.forEach(([x, y, z, r], i) => {
+      let yy = y;
+      if (mode === 'realtime' && i !== 1) { const w = [2.1, 0, 1.7, 2.6, 3.1, 2.3][i], ph = [0, 0, 1.3, 0.6, 2.2, 3.4][i]; yy = r + Math.abs(Math.sin(time * 0.001 * w + ph)) * [0.9, 0, 0.6, 1.1, 1.3, 0.8][i]; }
+      out.set([x, yy, z, r], i * 4);
+    });
+    return out;
+  }
+
+  let W = 0, H = 0, scale = Math.min(window.devicePixelRatio || 1, 1.5), tex = [], fbo = [], ping = 0, frame = 0;
+  let mode = params.get('mode') === 'realtime' ? 'realtime' : 'offline', auto = !params.has('mode'), dragging = false;
+  const MAX_SPP = floatTargets ? 480 : 64;
+  function target(w, h) {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, floatTargets ? gl.RGBA16F : gl.RGBA8, w, h, 0, gl.RGBA, floatTargets ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, null);
+    for (const k of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST);
+    const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return [t, f];
+  }
+  function resize() {
+    const r = fig.getBoundingClientRect();
+    let w = Math.max(64, Math.round(r.width * scale)), h = Math.max(48, Math.round(r.height * scale));
+    const cap = 640000 / (w * h); if (cap < 1) { w = Math.round(w * Math.sqrt(cap)); h = Math.round(h * Math.sqrt(cap)); }
+    if (w === W && h === H) return;
+    W = w; H = h; canvas.width = W; canvas.height = H;
+    tex.forEach(t => gl.deleteTexture(t)); fbo.forEach(f => gl.deleteFramebuffer(f));
+    const a = target(W, H), b = target(W, H); tex = [a[0], b[0]]; fbo = [a[1], b[1]];
+    restart();
+  }
+  function restart() {
+    frame = 0;
+    for (const f of fbo) { gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+  }
+  function pass(time) {
+    gl.useProgram(trace);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[1 - ping]); gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[ping]);
+    const moving = mode === 'realtime' || dragging;
+    gl.uniform1i(U.uPrev, 0); gl.uniform2f(U.uRes, W, H); gl.uniform1f(U.uFrame, frame);
+    gl.uniform1f(U.uAlpha, Math.max(1 / (frame + 1), moving ? (mode === 'realtime' ? 0.22 : 0.35) : 0));
+    gl.uniform3fv(U.uEye, eye()); gl.uniform3fv(U.uTarget, TARGET);
+    for (const k of ['uFloor', 'uHorizon', 'uTop', 'uKey', 'uRim']) gl.uniform3fv(U[k], pal[k]);
+    gl.uniform4fv(U.uS, spheres(time)); gl.uniform3fv(U.uAlb, pal.alb.flat()); gl.uniform1iv(U.uMat, pal.mat); gl.uniform1fv(U.uRough, pal.rough);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    ping = 1 - ping; frame++;
+  }
+  function present() {
+    gl.useProgram(show);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex[ping]);
+    gl.uniform1i(gl.getUniformLocation(show, 'uAcc'), 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (mode === 'realtime') { sppEl.textContent = 'real time · 1 spp / frame'; sppEl.classList.remove('ok'); return; }
+    const done = frame >= MAX_SPP;
+    sppEl.textContent = done ? `${frame} spp · converged` : `${frame} spp`;
+    sppEl.classList.toggle('ok', done);
+  }
+  function setMode(m, byUser) {
+    if (byUser) auto = false;
+    if (m === mode) return;
+    mode = m; restart(); holdUntil = 0; modeSince = performance.now();
+    modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  }
+  modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode, true)));
+
+  // drag to orbit
+  let px = 0, py = 0;
+  canvas.addEventListener('pointerdown', (e) => { dragging = true; auto = false; px = e.clientX; py = e.clientY; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    az -= (e.clientX - px) * 0.008; el = Math.min(0.62, Math.max(0.06, el + (e.clientY - py) * 0.005));
+    px = e.clientX; py = e.clientY;
+    if (mode === 'offline') frame = Math.min(frame, 3);        // keep a little history so dragging stays smooth
+  });
+  const endDrag = () => { if (!dragging) return; dragging = false; if (mode === 'offline') restart(); };
+  canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+
+  resize();
+  // a still frame for screenshots (?spp=N) and for reduced motion
+  const still = params.has('spp') ? Math.min(+params.get('spp') || 1, 2048) : (reduce ? 160 : 0);
+  if (still) {
+    modeBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    const t0 = +(params.get('t') || 0);
+    for (let i = 0; i < still; i++) pass(t0 + i * 16);
+    present(); msEl.textContent = 'still frame'; return;
+  }
+
+  let visible = true, holdUntil = 0, modeSince = performance.now(), last = 0, slow = 0, avg = 0;
+  if ('IntersectionObserver' in window) new IntersectionObserver((e) => { visible = e[0].isIntersecting; }).observe(fig);
+  new ResizeObserver(() => resize()).observe(fig);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { pal = palette(); restart(); });
+
+  function tick(ts) {
+    requestAnimationFrame(tick);
+    if (!visible || document.hidden) { last = 0; return; }
+    if (auto) {                                        // until someone takes over: converge, then play, then a new angle
+      if (mode === 'offline' && frame >= MAX_SPP) {
+        if (!holdUntil) holdUntil = ts + 2400;
+        else if (ts > holdUntil) setMode('realtime');
+      } else if (mode === 'realtime' && ts - modeSince > 7000) {
+        preset = (preset + 1) % PRESETS.length; [az, el, dist] = PRESETS[preset]; setMode('offline');
+      }
+    }
+    if (mode === 'offline' && frame >= MAX_SPP && !dragging) return;   // converged: rest the GPU
+    if (mode === 'realtime' && !dragging && !auto) az += 0.0012;        // a slow turntable when you have picked real time
+    if (last) {
+      const dt = ts - last; avg = avg ? avg * 0.9 + dt * 0.1 : dt;
+      if (frame % 12 === 0) msEl.textContent = `${avg.toFixed(1)} ms / frame · drag to orbit`;
+      slow = avg > 45 ? slow + 1 : 0;
+      if (slow > 30 && scale > 0.45) { scale *= 0.7; slow = 0; W = 0; resize(); }   // slow GPU: trace fewer pixels
+    }
+    last = ts;
+    pass(ts); present();
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
