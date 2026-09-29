@@ -1,0 +1,235 @@
+{
+ "scale": 0.0001,
+ "parts": [
+  {
+   "name": "so101/base_link",
+   "verts": 1150,
+   "tris": 2596,
+   "edges": 1763,
+   "pos": 0,
+   "nrm": 6900,
+   "idx": 10352,
+   "edg": 25928
+  },
+  {
+   "name": "so101/shoulder_link",
+   "verts": 1208,
+   "tris": 2600,
+   "edges": 1589,
+   "pos": 32980,
+   "nrm": 40228,
+   "idx": 43852,
+   "edg": 59452
+  },
+  {
+   "name": "so101/upper_arm_link",
+   "verts": 1228,
+   "tris": 2600,
+   "edges": 1491,
+   "pos": 65808,
+   "nrm": 73176,
+   "idx": 76860,
+   "edg": 92460
+  },
+  {
+   "name": "so101/lower_arm_link",
+   "verts": 1204,
+   "tris": 2600,
+   "edges": 1563,
+   "pos": 98424,
+   "nrm": 105648,
+   "idx": 109260,
+   "edg": 124860
+  },
+  {
+   "name": "so101/wrist_link",
+   "verts": 1264,
+   "tris": 2600,
+   "edges": 1456,
+   "pos": 131112,
+   "nrm": 138696,
+   "idx": 142488,
+   "edg": 158088
+  },
+  {
+   "name": "so101/gripper_link",
+   "verts": 1242,
+   "tris": 2600,
+   "edges": 1493,
+   "pos": 163912,
+   "nrm": 171364,
+   "idx": 175092,
+   "edg": 190692
+  },
+  {
+   "name": "so101/moving_jaw_so101_v1_link",
+   "verts": 1268,
+   "tris": 2600,
+   "edges": 879,
+   "pos": 196664,
+   "nrm": 204272,
+   "idx": 208076,
+   "edg": 223676
+  },
+  {
+   "name": "tb3/base_footprint",
+   "verts": 3478,
+   "tris": 8984,
+   "edges": 4206,
+   "pos": 227192,
+   "nrm": 248060,
+   "idx": 258496,
+   "edg": 312400
+  }
+ ],
+ "so101_chain": [
+  {
+   "name": "gripper_frame_joint",
+   "type": "fixed",
+   "parent": "gripper_link",
+   "child": "gripper_frame_link",
+   "xyz": [
+    -0.0079,
+    -0.000218121,
+    -0.0981274
+   ],
+   "rpy": [
+    0.0,
+    3.14159,
+    0.0
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "gripper",
+   "type": "revolute",
+   "parent": "gripper_link",
+   "child": "moving_jaw_so101_v1_link",
+   "xyz": [
+    0.0202,
+    0.0188,
+    -0.0234
+   ],
+   "rpy": [
+    1.5708,
+    -5.24284e-08,
+    -1.41553e-15
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "wrist_roll",
+   "type": "revolute",
+   "parent": "wrist_link",
+   "child": "gripper_link",
+   "xyz": [
+    5.55112e-17,
+    -0.0611,
+    0.0181
+   ],
+   "rpy": [
+    1.5708,
+    0.0486795,
+    3.14159
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "wrist_flex",
+   "type": "revolute",
+   "parent": "lower_arm_link",
+   "child": "wrist_link",
+   "xyz": [
+    -0.1349,
+    0.0052,
+    3.62355e-17
+   ],
+   "rpy": [
+    4.02456e-15,
+    8.67362e-16,
+    -1.5708
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "elbow_flex",
+   "type": "revolute",
+   "parent": "upper_arm_link",
+   "child": "lower_arm_link",
+   "xyz": [
+    -0.11257,
+    -0.028,
+    1.73763e-16
+   ],
+   "rpy": [
+    -3.63608e-16,
+    8.74301e-16,
+    1.5708
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "shoulder_lift",
+   "type": "revolute",
+   "parent": "shoulder_link",
+   "child": "upper_arm_link",
+   "xyz": [
+    -0.0303992,
+    -0.0182778,
+    -0.0542
+   ],
+   "rpy": [
+    -1.5708,
+    -1.5708,
+    0.0
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "shoulder_pan",
+   "type": "revolute",
+   "parent": "base_link",
+   "child": "shoulder_link",
+   "xyz": [
+    0.0388353,
+    -8.97657e-09,
+    0.0624
+   ],
+   "rpy": [
+    3.14159,
+    4.18253e-17,
+    -3.14159
+   ],
+   "axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  }
+ ],
+ "source": "SO-101: TheRobotStudio/SO-ARM100 (Apache-2.0); TurtleBot3 Waffle Pi: ROBOTIS-GIT/turtlebot3 (Apache-2.0)"
+}

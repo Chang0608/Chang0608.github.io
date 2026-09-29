@@ -409,9 +409,11 @@
 })();
 </script>
 <script>
-// ── Background: a lab and its digital twin, side by side. Left of the seam is the physical side as the sensors see it
-//    (dense points with live measurement noise); right of it is the twin (a clean wireframe with live telemetry).
-//    Both run in sync: the robot crosses the seam and changes representation, the arm moves the same on both sides.
+// ── Background: a corner of a robot lab and its digital twin, side by side. Left of the seam is the physical side,
+//    rendered as solid shaded geometry with soft shadows; right of it is the twin: the same geometry as CAD edges
+//    (hidden lines removed) on a gridded floor, with live telemetry. The SO-101 arm (real CAD, real URDF kinematics)
+//    and the TurtleBot3 (real CAD) move the same on both sides.
+//    Robot models: TheRobotStudio/SO-ARM100 and ROBOTIS-GIT/turtlebot3, both Apache-2.0.
 (() => {
   const host = document.getElementById('dtbg'), canvas = document.getElementById('dt3d');
   const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -420,231 +422,353 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const still = params.has('scan') || reduce;
 
-  // points: kind 0 floor, 1 static, 2 robot (local coords); edge 1 = wireframe edge, 0 = surface sample
-  let seed = 7;
-  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const jit = (s) => (rnd() - 0.5) * 2 * s;
-  const P = [], K = [], E = [], R = [];
-  const add = (x, y, z, k = 1, e = 1, n = 0.012) => { P.push(x + jit(n), y + jit(n), z + jit(n)); K.push(k); E.push(e); R.push(rnd() * 6.2832, 0.4 + rnd()); };
-  const line = (a, b, step, k = 1) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), n = Math.max(1, Math.round(d / step));
-    for (let i = 0; i <= n; i++) { const t = i / n; add(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, k, 1); } };
-  function box(x0, y0, z0, w, h, d, k = 1, edge = 0.05, face = 0) {
-    const c = [[0, 0, 0], [w, 0, 0], [0, h, 0], [0, 0, d], [w, h, 0], [w, 0, d], [0, h, d], [w, h, d]].map(([a, b, e]) => [x0 + a, y0 + b, z0 + e]);
-    for (const [i, j] of [[0, 1], [0, 2], [0, 3], [1, 4], [1, 5], [2, 4], [2, 6], [3, 5], [3, 6], [4, 7], [5, 7], [6, 7]]) line(c[i], c[j], edge, k);
-    if (face) {                                                   // surfaces: what a sensor sees, not what a CAD model draws
-      for (let x = x0 + face; x < x0 + w; x += face) for (let z = z0 + face; z < z0 + d; z += face) add(x, y0 + h, z, k, 0, 0.02);
-      for (let x = x0 + face; x < x0 + w; x += face) for (let y = y0 + face; y < y0 + h; y += face) { add(x, y, z0 + d, k, 0, 0.02); add(x, y, z0, k, 0, 0.02); }
-      for (let z = z0 + face; z < z0 + d; z += face) for (let y = y0 + face; y < y0 + h; y += face) { add(x0, y, z, k, 0, 0.02); add(x0 + w, y, z, k, 0, 0.02); }
-    }
-  }
-  function tubePts(a, b, r, rings, per, out) {                   // samples on a cylinder, written into out (used for the moving arm)
-    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d) || 1, u = d.map(v => v / L);
-    const t = Math.abs(u[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
-    let v1 = [u[1] * t[2] - u[2] * t[1], u[2] * t[0] - u[0] * t[2], u[0] * t[1] - u[1] * t[0]]; const n1 = Math.hypot(...v1); v1 = v1.map(x => x / n1);
-    const v2 = [u[1] * v1[2] - u[2] * v1[1], u[2] * v1[0] - u[0] * v1[2], u[0] * v1[1] - u[1] * v1[0]];
-    for (let i = 0; i < rings; i++) { const s = L * i / (rings - 1);
-      for (let q = 0; q < per; q++) { const ang = q / per * Math.PI * 2, cs = Math.cos(ang) * r, sn = Math.sin(ang) * r;
-        out.push(a[0] + u[0] * s + v1[0] * cs + v2[0] * sn, a[1] + u[1] * s + v1[1] * cs + v2[1] * sn, a[2] + u[2] * s + v1[2] * cs + v2[2] * sn); } }
-  }
+  // ---------- math (column-major 4x4) ----------
+  const I4 = () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const mul = (a, b) => { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; };
+  const trans = (x, y, z) => { const m = I4(); m[12] = x; m[13] = y; m[14] = z; return m; };
+  const rotY = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]; };
+  const rotX = (a) => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]; };
+  const rpy = (r, p, y) => { const cr = Math.cos(r), sr = Math.sin(r), cp = Math.cos(p), sp = Math.sin(p), cy = Math.cos(y), sy = Math.sin(y);
+    return [cy * cp, sy * cp, -sp, 0, cy * sp * sr - sy * cr, sy * sp * sr + cy * cr, cp * sr, 0, cy * sp * cr + sy * sr, sy * sp * cr - cy * sr, cp * cr, 0, 0, 0, 0, 1]; };
+  const axisAngle = ([x, y, z], a) => { const c = Math.cos(a), s = Math.sin(a), t = 1 - c;
+    return [t * x * x + c, t * x * y + s * z, t * x * z - s * y, 0, t * x * y - s * z, t * y * y + c, t * y * z + s * x, 0, t * x * z + s * y, t * y * z - s * x, t * z * z + c, 0, 0, 0, 0, 1]; };
+  const ZUP = [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1];      // URDF (z up) → page world (y up)
+  const apply = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
+  const norm = (a) => { const l = Math.hypot(...a); return a.map(v => v / l); };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  function lookAt(eye, tg) { const f = norm(tg.map((v, i) => v - eye[i])), s = norm(cross(f, [0, 1, 0])), u = cross(s, f);
+    return [s[0], u[0], -f[0], 0, s[1], u[1], -f[1], 0, s[2], u[2], -f[2], 0, -dot(s, eye), -dot(u, eye), dot(f, eye), 1]; }
+  const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov / 2); return [t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]; };
+  const ortho = (h, n, f) => [1 / h, 0, 0, 0, 0, 1 / h, 0, 0, 0, 0, -2 / (f - n), 0, 0, 0, -(f + n) / (f - n), 1];
+  const F32 = (m) => new Float32Array(m);
 
-  // camera: looking down at the floor like a map; objects are placed by where they should land on screen
-  const CAM = { target: [0, 0, 0], az: -0.55, el: 0.62, dist: 15, fov: 38 };
-  function eyeOf(az, el, dist, tg) { return [tg[0] + dist * Math.cos(el) * Math.sin(az), tg[1] + dist * Math.sin(el), tg[2] + dist * Math.cos(el) * Math.cos(az)]; }
-  const aspect0 = innerWidth / innerHeight, tanH = Math.tan(CAM.fov / 2 * Math.PI / 180);
+  // ---------- camera; furniture is placed by where it should land on screen ----------
+  const CAM = { target: [0, 0.3, 0], az: -0.42, el: 0.72, dist: 9.2, fov: 30 * Math.PI / 180 };
+  const RS = 1.45;                                                    // robots drawn a little larger than life so they read at page scale
+  const aspect0 = innerWidth / innerHeight, tanH = Math.tan(CAM.fov / 2);
   function floorAt(uu, vv) {
-    const eye = eyeOf(CAM.az, CAM.el, CAM.dist, CAM.target);
-    const f = CAM.target.map((v, i) => v - eye[i]), fl = Math.hypot(...f); f.forEach((v, i) => f[i] = v / fl);
-    const sx = [-f[2], 0, f[0]], sl = Math.hypot(...sx); sx.forEach((v, i) => sx[i] = v / sl);
-    const up = [sx[1] * f[2] - sx[2] * f[1], sx[2] * f[0] - sx[0] * f[2], sx[0] * f[1] - sx[1] * f[0]];
-    const x = (uu * 2 - 1) * tanH * aspect0, y = (1 - vv * 2) * tanH;
-    const d = [f[0] + sx[0] * x + up[0] * y, f[1] + sx[1] * x + up[1] * y, f[2] + sx[2] * x + up[2] * y];
-    const t = d[1] < -1e-3 ? -eye[1] / d[1] : 60;
+    const eye = [CAM.target[0] + CAM.dist * Math.cos(CAM.el) * Math.sin(CAM.az), CAM.target[1] + CAM.dist * Math.sin(CAM.el), CAM.target[2] + CAM.dist * Math.cos(CAM.el) * Math.cos(CAM.az)];
+    const f = norm(CAM.target.map((v, i) => v - eye[i])), sx = norm(cross(f, [0, 1, 0])), up = cross(sx, f);
+    const x = (uu * 2 - 1) * tanH * aspect0, y = (1 - vv * 2) * tanH, d = [0, 1, 2].map(i => f[i] + sx[i] * x + up[i] * y);
+    const t = d[1] < -1e-3 ? -eye[1] / d[1] : 40;
     return [eye[0] + d[0] * t, 0, eye[2] + d[2] * t];
   }
-  const at = floorAt;
+  const ROOM = (() => { const a = floorAt(0.3, 0.5), b = floorAt(0.7, 0.5); return Math.atan2(-(b[2] - a[2]), b[0] - a[0]); })();   // room axes square to the view
+  const place = (uu, vv, yaw = 0) => { const q = floorAt(uu, vv); return mul(trans(q[0], 0, q[2]), rotY(ROOM + yaw)); };
 
-  // floor: the measurement paper
-  const corners = [[-0.1, -0.05], [1.1, -0.05], [-0.1, 1.1], [1.1, 1.1]].map(([a, b]) => floorAt(a, b));
-  const cl = (v) => Math.max(-45, Math.min(45, v)), fx = corners.map(c => c[0]), fz = corners.map(c => c[2]);
-  for (let x = Math.round(cl(Math.min(...fx))); x <= cl(Math.max(...fx)); x += 0.6)
-    for (let z = Math.round(cl(Math.min(...fz))); z <= cl(Math.max(...fz)); z += 0.6) add(x, 0, z, 0, 1, 0);
-  // racks along the far edge
-  const racks = [];
-  for (const uu of [0.14, 0.4, 0.66]) {
-    const [cx, , cz] = at(uu, 0.13), w = 2.6, d = 0.7, rx = cx - w / 2, z0 = cz - d / 2;
-    racks.push([cx, 2.5, cz]);
-    for (const [px, pz] of [[rx, z0], [rx + w, z0], [rx, z0 + d], [rx + w, z0 + d]]) line([px, 0, pz], [px, 2.4, pz], 0.05);
-    for (const y of [0.15, 0.85, 1.55, 2.25]) box(rx, y, z0, w, 0.04, d, 1, 0.07);
-    for (const y of [0.19, 0.89, 1.59]) for (let bx = rx + 0.15; bx < rx + w - 0.5; bx += 0.62 + rnd() * 0.3)
-      if (rnd() > 0.25) { const bw = 0.35 + rnd() * 0.25, bh = 0.25 + rnd() * 0.3; box(bx, y, z0 + 0.1, bw, bh, 0.5, 1, 0.06, 0.12); }
+  // ---------- the lab (world metres, y up) ----------
+  const G = { p: [], i: [], e: [] };                                  // static solids: positions, triangles, edges
+  function box(M, w, h, d) {
+    const b = G.p.length / 3, C = [[0, 0, 0], [w, 0, 0], [w, h, 0], [0, h, 0], [0, 0, d], [w, 0, d], [w, h, d], [0, h, d]];
+    for (const c of C) G.p.push(...apply(M, c));
+    for (const [a, b2, c] of [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [3, 6, 2], [3, 7, 6], [0, 4, 7], [0, 7, 3], [1, 2, 6], [1, 6, 5]]) G.i.push(b + a, b + b2, b + c);
+    for (const [a, c] of [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]) G.e.push(b + a, b + c);
   }
-  for (const uu of [0.02, 0.53, 0.99]) { const [x, , z] = at(uu, 0.02); box(x - 0.25, 0, z - 0.25, 0.5, 3.6, 0.5, 1, 0.06, 0.18); }
-  for (const [uu, vv, w, h, d] of [[0.03, 0.56, 1.1, 0.8, 1.0], [0.05, 0.74, 0.8, 0.55, 0.8], [0.36, 0.95, 1.2, 0.7, 1.0], [0.66, 0.97, 0.7, 0.5, 0.7], [0.93, 0.88, 1.0, 0.9, 1.2], [0.98, 0.72, 0.8, 0.6, 0.8]]) {
-    const [x, , z] = at(uu, vv); box(x - w / 2, 0, z - d / 2, w, h, d, 1, 0.05, 0.14);
+  function cyl(M, r, h, seg = 18) {
+    const b = G.p.length / 3;
+    for (let i = 0; i < seg; i++) { const a = i / seg * Math.PI * 2; G.p.push(...apply(M, [Math.cos(a) * r, 0, Math.sin(a) * r]), ...apply(M, [Math.cos(a) * r, h, Math.sin(a) * r])); }
+    G.p.push(...apply(M, [0, 0, 0]), ...apply(M, [0, h, 0])); const c0 = b + seg * 2, c1 = c0 + 1;
+    for (let i = 0; i < seg; i++) { const j = (i + 1) % seg, a0 = b + i * 2, a1 = a0 + 1, b0 = b + j * 2, b1 = b0 + 1;
+      G.i.push(a0, b0, b1, a0, b1, a1, c0, b0, a0, c1, a1, b1); G.e.push(a0, b0, a1, b1); }
   }
-  // workbench (static) and the arm on it (moving; positions rewritten every frame)
-  const [bx, , bz] = at(0.87, 0.21);
-  box(bx - 0.9, 0.74, bz - 0.45, 1.8, 0.05, 0.9, 1, 0.05, 0.14);
-  for (const [dx, dz] of [[-0.85, -0.4], [0.85, -0.4], [-0.85, 0.4], [0.85, 0.4]]) line([bx + dx, 0, bz + dz], [bx + dx, 0.74, bz + dz], 0.04);
-  const ARM_BASE = [bx - 0.4, 0.79, bz], ARM_R = [0.07, 0.045, 0.04, 0.032], ARM_RINGS = 18, ARM_PER = 9;
-  function armJoints(q) {                                            // planar arm: absolute link angles from vertical
-    const L = [0.16, 0.46, 0.44, 0.2], th = [0, q[0], q[0] + q[1], q[0] + q[1] + q[2]];
-    const J = [ARM_BASE.slice()];
-    for (let i = 0; i < 4; i++) { const p = J[i]; J.push([p[0] + Math.sin(th[i]) * L[i], p[1] + Math.cos(th[i]) * L[i], p[2]]); }
-    return J;
+  const at = (M, x, y, z) => mul(M, trans(x, y, z));
+  function desk(M) {
+    box(at(M, 0, 0.71, 0), 1.4, 0.03, 0.7);
+    for (const [x, z] of [[0.03, 0.03], [1.33, 0.03], [0.03, 0.63], [1.33, 0.63]]) box(at(M, x, 0, z), 0.04, 0.71, 0.04);
+    box(at(M, 0.28, 0.74, 0.14), 0.22, 0.012, 0.16); box(at(M, 0.37, 0.75, 0.2), 0.04, 0.28, 0.025); box(at(M, 0.08, 0.98, 0.22), 0.6, 0.36, 0.022);
+    box(at(M, 0.82, 0.74, 0.18), 0.44, 0.018, 0.15); box(at(M, 1.02, 0.74, 0.42), 0.22, 0.32, 0.2);
   }
-  const armStart = K.length, armCount = 4 * ARM_RINGS * ARM_PER;
-  { const tmp = []; const J = armJoints([0.5, 1.4, 0.9]); for (let i = 0; i < 4; i++) tubePts(J[i], J[i + 1], ARM_R[i], ARM_RINGS, ARM_PER, tmp);
-    for (let i = 0; i < tmp.length; i += 3) add(tmp[i], tmp[i + 1], tmp[i + 2], 1, 1, 0); }
-  // the patrolling robot (local coordinates)
-  box(-0.35, 0.06, -0.25, 0.7, 0.28, 0.5, 2, 0.04, 0.1);
-  { const tmp = []; tubePts([0, 0.34, 0], [0, 0.44, 0], 0.07, 4, 12, tmp); for (let i = 0; i < tmp.length; i += 3) add(tmp[i], tmp[i + 1], tmp[i + 2], 2, 1, 0); }
-  const AMR_A = at(0.2, 0.86), AMR_B = at(0.82, 0.84);
+  function chair(M) {
+    for (let i = 0; i < 5; i++) box(mul(at(M, 0.25, 0.03, 0.25), rotY(i / 5 * Math.PI * 2)), 0.3, 0.035, 0.035);
+    cyl(at(M, 0.25, 0.06, 0.25), 0.022, 0.37, 10);
+    box(at(M, 0.02, 0.43, 0.02), 0.46, 0.07, 0.46); box(mul(at(M, 0.04, 0.52, 0.44), rotX(-0.12)), 0.42, 0.5, 0.05);
+  }
+  function shelf(M, w = 1.2, d = 0.45, h = 1.5) {
+    for (const [x, z] of [[0, 0], [w - 0.03, 0], [0, d - 0.03], [w - 0.03, d - 0.03]]) box(at(M, x, 0, z), 0.03, h, 0.03);
+    for (const y of [0.06, 0.52, 0.98, h - 0.02]) box(at(M, 0, y, 0), w, 0.02, d);
+    let sd = 5; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (const y of [0.08, 0.54, 1.0]) { let x = 0.05; while (x < w - 0.25) { const bw = 0.18 + r() * 0.22; if (r() > 0.25) box(at(M, x, y, 0.06), bw, 0.16 + r() * 0.22, d - 0.14); x += bw + 0.04; } }
+  }
+  function tripod(M, h = 1.3) {
+    for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + 0.4, foot = [Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3], top = [0, h - 0.1, 0];
+      const d = top.map((v, k) => v - foot[k]), L = Math.hypot(...d), tilt = Math.acos(d[1] / L), yaw = Math.atan2(d[0], d[2]);
+      cyl(mul(mul(at(M, ...foot), rotY(yaw)), rotX(tilt)), 0.011, L, 6); }
+    cyl(at(M, 0, h - 0.1, 0), 0.018, 0.1, 8);
+    box(at(M, -0.06, h, -0.045), 0.12, 0.07, 0.09);
+  }
+  shelf(place(0.04, 0.2)); desk(place(0.19, 0.2)); chair(place(0.24, 0.265, Math.PI + 0.25));
+  shelf(place(0.36, 0.19), 1.2, 0.45, 1.8);
+  const TABLE = place(0.17, 0.965, 0.08);
+  box(at(TABLE, 0, 0.74, 0), 1.3, 0.035, 0.8);
+  for (const [x, z] of [[0.03, 0.03], [1.22, 0.03], [0.03, 0.72], [1.22, 0.72]]) box(at(TABLE, x, 0, z), 0.05, 0.74, 0.05);
+  box(at(TABLE, 0.03, 0.16, 0.03), 1.24, 0.02, 0.74);
+  box(at(TABLE, 0.8, 0.775, 0.25), 0.32, 0.004, 0.22);                  // calibration board
+  for (const [x, z] of [[-0.35, 0.2], [1.7, 0.15], [0.7, 1.35]]) tripod(at(TABLE, x, 0, z));
+  const ARM_BASE = mul(mul(at(TABLE, 0.42, 0.775, 0.4), rotY(0.5)), [RS, 0, 0, 0, 0, RS, 0, 0, 0, 0, RS, 0, 0, 0, 0, 1]);
+  box(place(0.97, 0.2, 0.2), 0.8, 0.9, 0.5);                          // a rolling cabinet
+  const STATIC = { tris: G.i.length, edges: G.e.length };
 
-  const VS = `#version 300 es
-  in vec3 aPos; in float aKind, aEdge; in vec2 aRnd;
-  uniform mat4 uVP; uniform float uTime, uPx, uFade, uSeam, uW; uniform vec2 uAmr;
-  out float vA, vKind, vReal;
-  void main() {
-    vec3 p = aPos;
-    if (aKind > 1.5) p.xz += uAmr;
-    vec4 c0 = uVP * vec4(p, 1.0);
-    float real = step((c0.x / c0.w * 0.5 + 0.5) * uW, uSeam);          // left of the seam: the physical side
-    if (real > 0.5 && aKind > 0.5)                                        // live measurement noise
-      p += vec3(sin(uTime * 7.0 + aRnd.x), sin(uTime * 5.3 + aRnd.x * 1.7), cos(uTime * 6.1 + aRnd.x * 2.3)) * 0.014 * aRnd.y;
-    vec4 c = uVP * vec4(p, 1.0);
-    gl_Position = c;
-    float fog = clamp(1.0 - (c.w - 12.0) / 30.0, 0.15, 1.0);
-    float a = aKind < 0.5 ? (real > 0.5 ? 0.5 : 0.36) : (real > 0.5 ? 0.62 : aEdge * 0.58);
-    vA = a * fog * uFade; vKind = aKind; vReal = real;
-    gl_PointSize = clamp(uPx * (real > 0.5 ? 1.0 : 0.8) * 13.0 / c.w, 0.7 * uPx, 3.0 * uPx);
+  // TurtleBot3 route, taped on the floor (rounded rectangle)
+  const RC = (() => { const q = floorAt(0.69, 0.885); return [q[0], q[2]]; })(), RW = Math.hypot(...[0, 2].map(i => floorAt(0.93, 0.885)[i] - floorAt(0.45, 0.885)[i])) / 2, RD = 0.42, RR = 0.36;
+  const PATH = [];
+  { const cr = Math.cos(ROOM), sr = Math.sin(ROOM);
+    const seg = (cx, cz, a0) => { for (let i = 0; i <= 14; i++) { const a = a0 + i / 14 * Math.PI / 2, lx = cx + Math.cos(a) * RR, lz = cz + Math.sin(a) * RR; PATH.push([RC[0] + cr * lx + sr * lz, RC[1] - sr * lx + cr * lz]); } };
+    seg(RW - RR, RD - RR, 0); seg(-RW + RR, RD - RR, Math.PI / 2); seg(-RW + RR, -RD + RR, Math.PI); seg(RW - RR, -RD + RR, 1.5 * Math.PI); PATH.push(PATH[0]); }
+  const segLen = PATH.slice(1).map((p, i) => Math.hypot(p[0] - PATH[i][0], p[1] - PATH[i][1])), PATH_LEN = segLen.reduce((a, b) => a + b, 0);
+  function along(s) { s = ((s % PATH_LEN) + PATH_LEN) % PATH_LEN; for (let i = 0; i < segLen.length; i++) { if (s <= segLen[i]) { const t = s / segLen[i], a = PATH[i], b = PATH[i + 1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, Math.atan2(b[1] - a[1], b[0] - a[0])]; } s -= segLen[i]; } return [...PATH[0], 0]; }
+  const TAPE = [];                                                      // dashes as floor quads
+  for (let s = 0; s < PATH_LEN; s += 0.22) { const a = along(s), b = along(s + 0.1), nx = -Math.sin(a[2]) * 0.014, nz = Math.cos(a[2]) * 0.014;
+    TAPE.push(a[0] + nx, 0.002, a[1] + nz, a[0] - nx, 0.002, a[1] - nz, b[0] - nx, 0.002, b[1] - nz, a[0] + nx, 0.002, a[1] + nz, b[0] - nx, 0.002, b[1] - nz, b[0] + nx, 0.002, b[1] + nz); }
+
+  // ---------- GL programs ----------
+  function program(vs, fs) {
+    const p = gl.createProgram();
+    for (const [t, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); gl.attachShader(p, s); }
+    gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name.replace('[0]', '')] = gl.getUniformLocation(p, a.name); }
+    return { p, u };
+  }
+  const SHADOW_FN = `
+  float shadowAt(vec4 lp) {
+    vec3 c = lp.xyz / lp.w * 0.5 + 0.5;
+    if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) return 1.0;
+    float s = 0.0;
+    for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) s += texture(uShadow, vec3(c.xy + vec2(x, y) * 0.0012, c.z - 0.002));
+    return s / 9.0;
   }`;
-  const FS = `#version 300 es
-  precision mediump float;
-  in float vA, vKind, vReal;
-  uniform vec3 uFloorC, uObjC, uTwinC;
-  out vec4 o;
-  void main() {
-    if (vA < 0.002) discard;
-    vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q);
-    if (r > 1.0) discard;
-    vec3 c = vKind < 0.5 ? mix(uFloorC, uTwinC, (1.0 - vReal) * 0.3) : (vReal > 0.5 ? uObjC : uTwinC);
-    o = vec4(c, vA * smoothstep(1.0, 0.55, r));
-  }`;
-  const prog = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, FS]]) {
-    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(sh)); return; }
-    gl.attachShader(prog, sh);
-  }
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-  gl.useProgram(prog);
-  gl.bindVertexArray(gl.createVertexArray());
-  const posData = new Float32Array(P);
-  const posBuf = gl.createBuffer();
-  const attr = (buf, data, name, size, usage) => { gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, data, usage); const l = gl.getAttribLocation(prog, name); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, 0, 0); };
-  attr(posBuf, posData, 'aPos', 3, gl.DYNAMIC_DRAW);
-  attr(gl.createBuffer(), new Float32Array(K), 'aKind', 1, gl.STATIC_DRAW);
-  attr(gl.createBuffer(), new Float32Array(E), 'aEdge', 1, gl.STATIC_DRAW);
-  attr(gl.createBuffer(), new Float32Array(R), 'aRnd', 2, gl.STATIC_DRAW);
-  const COUNT = K.length;
-  const u = {}; for (const n of ['uVP', 'uTime', 'uPx', 'uFade', 'uSeam', 'uW', 'uAmr', 'uFloorC', 'uObjC', 'uTwinC']) u[n] = gl.getUniformLocation(prog, n);
-  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-  host.classList.add('gl');
+  let P = {};
+  try {
+    P.depth = program(`#version 300 es
+      in vec3 aPos; uniform mat4 uVP, uModel; invariant gl_Position;
+      void main() { vec4 w = uModel * vec4(aPos, 1.0); gl_Position = uVP * w; }`,
+      `#version 300 es
+      precision mediump float; out vec4 o; void main() { o = vec4(1.0); }`);
+    P.solid = program(`#version 300 es
+      in vec3 aPos; in vec3 aNrm; uniform mat4 uVP, uModel, uLightVP; out vec3 vW, vN; out vec4 vL; invariant gl_Position;
+      void main() { vec4 w = uModel * vec4(aPos, 1.0); vW = w.xyz; vN = mat3(uModel) * aNrm; vL = uLightVP * w; gl_Position = uVP * w; }`,
+      `#version 300 es
+      precision highp float; precision highp sampler2DShadow;
+      in vec3 vW, vN; in vec4 vL; uniform vec3 uEye, uLdir, uLit, uShade, uBgC, uTwinC; uniform float uSeam, uSmooth; uniform sampler2DShadow uShadow; out vec4 o;
+      ${SHADOW_FN}
+      void main() {
+        bool twin = gl_FragCoord.x >= uSeam;
+        vec3 n = uSmooth > 0.5 ? normalize(vN) : normalize(cross(dFdx(vW), dFdy(vW))); if (dot(n, uEye - vW) < 0.0) n = -n;
+        float d = max(dot(n, uLdir), 0.0) * shadowAt(vL), sky = 0.5 + 0.5 * n.y;
+        float spec = 0.0;
+        if (twin) { o = vec4(mix(uBgC, uTwinC, 0.05 + 0.05 * (1.0 - n.y)), 1.0); return; }   // the twin: a faint fill, edges on top
+        o = vec4(mix(uShade, uLit, clamp(0.3 * sky + 0.7 * d, 0.0, 1.0)) + spec, 1.0);
+      }`);
+    P.floor = program(`#version 300 es
+      in vec3 aPos; uniform mat4 uVP, uLightVP; out vec3 vW; out vec4 vL;
+      void main() { vW = aPos; vL = uLightVP * vec4(aPos, 1.0); gl_Position = uVP * vec4(aPos, 1.0); }`,
+      `#version 300 es
+      precision highp float; precision highp sampler2DShadow;
+      in vec3 vW; in vec4 vL; uniform vec3 uBg, uTwinC, uCenter; uniform float uSeam, uRoom; uniform sampler2DShadow uShadow; out vec4 o;
+      ${SHADOW_FN}
+      void main() {
+        vec2 g = (mat2(cos(uRoom), -sin(uRoom), sin(uRoom), cos(uRoom)) * vW.xz) / 0.6, f = abs(fract(g - 0.5) - 0.5) / fwidth(g);
+        float line = 1.0 - min(min(f.x, f.y), 1.0), far = smoothstep(9.0, 16.0, length(vW.xz - uCenter.xz));
+        vec3 c = uBg;
+        if (gl_FragCoord.x < uSeam) { c *= 1.0 - 0.06 * line; c *= mix(0.8, 1.0, shadowAt(vL)); }
+        else c = mix(c, uTwinC, 0.16 * line);
+        o = vec4(mix(c, uBg, far), 1.0);
+      }`);
+    P.flat = program(`#version 300 es
+      in vec3 aPos; uniform mat4 uVP, uModel; void main() { gl_Position = uVP * uModel * vec4(aPos, 1.0); }`,
+      `#version 300 es
+      precision mediump float; uniform vec3 uColL, uColR; uniform float uSeam, uSide, uAlpha; out vec4 o;
+      void main() {
+        bool twin = gl_FragCoord.x >= uSeam;
+        if (uSide > 0.5 && !twin) discard;                               // edges: twin side only
+        o = vec4(twin ? uColR : uColL, uAlpha);
+      }`);
+  } catch (e) { console.warn(e); return; }
 
+  // ---------- buffers ----------
+  function vao(pos, idx, edg, nrm) {
+    const v = gl.createVertexArray(); gl.bindVertexArray(v);
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, pos, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    if (nrm) { const nb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, nb); gl.bufferData(gl.ARRAY_BUFFER, nrm, gl.STATIC_DRAW); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.BYTE, true, 0, 0); }
+    else gl.vertexAttrib3f(1, 0, 1, 0);
+    const o = { v, n: idx ? idx.length : pos.length / 3, type: idx && idx.BYTES_PER_ELEMENT === 4 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+    if (idx) { o.ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); }
+    if (edg) { o.eb = gl.createBuffer(); o.en = edg.length; gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.eb); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, edg, gl.STATIC_DRAW); if (idx) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.ib); }
+    gl.bindVertexArray(null); return o;
+  }
+  for (const pr of Object.values(P)) { gl.bindAttribLocation(pr.p, 0, 'aPos'); gl.bindAttribLocation(pr.p, 1, 'aNrm'); gl.linkProgram(pr.p);
+    const n = gl.getProgramParameter(pr.p, gl.ACTIVE_UNIFORMS); pr.u = {}; for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(pr.p, i); pr.u[a.name.replace('[0]', '')] = gl.getUniformLocation(pr.p, a.name); } }
+  const LAB = vao(new Float32Array(G.p), new Uint32Array(G.i), new Uint32Array(G.e));
+  const FLOOR = vao(new Float32Array([-14, 0, -14, 14, 0, -14, 14, 0, 14, -14, 0, -14, 14, 0, 14, -14, 0, 14]), null, null);
+  const TAPEV = vao(new Float32Array(TAPE), null, null);
+  let robots = null;
+  Promise.all([fetch('robots_mesh.json').then(r => r.json()), fetch('robots_mesh.bin').then(r => r.arrayBuffer())]).then(([meta, bin]) => {
+    const parts = meta.parts.map(p => {
+      const pos = new Float32Array(new Int16Array(bin, p.pos, p.verts * 3)).map(v => v * meta.scale);
+      return { name: p.name, g: vao(pos, new Uint16Array(bin, p.idx, p.tris * 3), new Uint16Array(bin, p.edg, p.edges * 2), new Int8Array(bin, p.nrm, p.verts * 3)) };
+    });
+    robots = { parts, chain: meta.so101_chain };
+    if (redraw) redraw();
+  }).catch(e => console.warn(e));
+
+  // shadow map
+  const SM = 2048, shadowTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, shadowTex);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, SM, SM);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const shadowFB = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFB);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, shadowTex, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const LDIR = norm([-0.45, 1.0, 0.4]), SCENE_C = CAM.target.slice(); SCENE_C[1] = 0;
+  const LIGHT_VP = mul(ortho(9.5, 0.1, 40), lookAt(SCENE_C.map((v, i) => v + LDIR[i] * 16), SCENE_C));
+
+  // ---------- colours ----------
   const rgb = (n) => { const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue(n).trim().slice(1), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; };
-  let clear = [1, 1, 1];
-  function colours() { clear = rgb('--bg'); gl.uniform3fv(u.uFloorC, rgb('--ghost')); gl.uniform3fv(u.uObjC, rgb('--muted')); gl.uniform3fv(u.uTwinC, rgb('--accent')); }
+  let C = {};
+  function colours() { const bg = rgb('--bg'), dark = bg[0] + bg[1] + bg[2] < 1.2;
+    C = { bg, twin: rgb('--accent'), tape: dark ? [0.55, 0.52, 0.48] : [0.25, 0.26, 0.27],
+          lit: bg.map(v => dark ? v + 0.2 : v * 0.985), shade: bg.map(v => dark ? v + 0.035 : v * 0.66),
+          rlit: dark ? [0.66, 0.64, 0.6] : [0.5, 0.51, 0.53], rshade: dark ? [0.14, 0.135, 0.13] : [0.16, 0.165, 0.175] }; }
   colours();
 
-  // matrices
-  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const norm = (a) => { const l = Math.hypot(...a); return a.map(v => v / l); }, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  function viewProj(eye, target, aspect) {
-    const f = norm(sub(target, eye)), s = norm(cross(f, [0, 1, 0])), up = cross(s, f);
-    const V = [s[0], up[0], -f[0], 0, s[1], up[1], -f[1], 0, s[2], up[2], -f[2], 0, -dot(s, eye), -dot(up, eye), dot(f, eye), 1];
-    const t = 1 / tanH, n = 0.1, fa = 160;
-    const Pm = [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0];
-    const M = new Float32Array(16);
-    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let x = 0; for (let k = 0; k < 4; k++) x += Pm[k * 4 + r] * V[c * 4 + k]; M[c * 4 + r] = x; }
-    return M;
+  // ---------- kinematics ----------
+  function armPose(q) {
+    const T = { base_link: mul(ARM_BASE, ZUP) }, Q = { shoulder_pan: q[0], shoulder_lift: q[1], elbow_flex: q[2], wrist_flex: q[3], wrist_roll: q[4], gripper: q[5] };
+    for (let pass = 0; pass < 8; pass++) for (const j of robots.chain) if (T[j.parent] && !T[j.child]) {
+      let m = mul(T[j.parent], mul(trans(...j.xyz), rpy(...j.rpy)));
+      if (j.type !== 'fixed') m = mul(m, axisAngle(j.axis, Q[j.name] || 0));
+      T[j.child] = m; }
+    return T;
   }
-  const project = (M, p) => { const x = M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], y = M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], w = M[3] * p[0] + M[7] * p[1] + M[11] * p[2] + M[15];
-    return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; };
+  const armQ = (t) => [0.8 * Math.sin(t * 0.3), 0.1 + 0.28 * Math.sin(t * 0.42), -0.15 + 0.3 * Math.sin(t * 0.42 + 1.2), 0.45 + 0.3 * Math.sin(t * 0.55 + 2.0), 0.6 * Math.sin(t * 0.25), 0.25 + 0.25 * Math.sin(t * 1.0)];
+  const SPEED = 0.3;
 
-  // overlay: the seam, its labels, and telemetry tags on the twin side
+  // ---------- overlay ----------
   const ov = document.createElement('div'); ov.className = 'tw-ov';
-  ov.innerHTML = '<i class="seam"></i><span class="side l">Physical</span><span class="side r">Digital twin</span>' +
-    '<span class="tag" data-k="amr"></span><span class="tag" data-k="arm"></span>';
+  ov.innerHTML = '<i class="seam"></i><span class="side l">Physical</span><span class="side r">Digital twin</span><span class="tag" data-k="tb"></span><span class="tag" data-k="arm"></span>';
   host.appendChild(ov);
   const seamEl = ov.querySelector('.seam'), sideL = ov.querySelector('.side.l'), sideR = ov.querySelector('.side.r');
   const tags = Object.fromEntries([...ov.querySelectorAll('.tag')].map(t => [t.dataset.k, t]));
+  const figEl = document.querySelector('.field'); let figRect = null, tick = 0;
+  host.classList.add('gl');
 
   let W = 0, H = 0, dpr = Math.min(devicePixelRatio || 1, 2), redraw = null;
-  function resize() { W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); canvas.width = W; canvas.height = H; gl.viewport(0, 0, W, H); gl.uniform1f(u.uPx, 2.1 * dpr); gl.uniform1f(u.uW, W); if (redraw) redraw(); }
+  function resize() { W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); canvas.width = W; canvas.height = H; if (redraw) redraw(); }
   resize(); addEventListener('resize', resize);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { colours(); if (redraw) redraw(); });
   const mouse = [0, 0], goal = [0, 0]; let seam = 0.5, lastMove = -1e9;
   addEventListener('pointermove', (e) => { goal[0] = e.clientX / innerWidth - 0.5; goal[1] = e.clientY / innerHeight - 0.5; lastMove = performance.now(); }, { passive: true });
 
-  const armQ = (t) => [0.45 + 0.28 * Math.sin(t * 0.55), 1.35 + 0.3 * Math.sin(t * 0.55 + 1.1), 0.85 + 0.35 * Math.sin(t * 0.8 + 2.0)];
-  let tagTick = 0, figRect = null;
-  const figEl = document.querySelector('.field');
+  function drawScene(VP, eye, models, pass) {
+    // pass 'shadow': depth from the light; 'main': everything
+    const drawSolid = (pr, g, M) => { gl.uniformMatrix4fv(pr.u.uModel, false, F32(M)); gl.bindVertexArray(g.v); gl.drawElements(gl.TRIANGLES, g.n, g.type, 0); };
+    if (pass === 'shadow') {
+      gl.useProgram(P.depth.p); gl.uniformMatrix4fv(P.depth.u.uVP, false, F32(VP));
+      for (const [g, M] of models) { gl.uniformMatrix4fv(P.depth.u.uModel, false, F32(M)); gl.bindVertexArray(g.v); gl.drawElements(gl.TRIANGLES, g.n, g.type, 0); }
+      return;
+    }
+    const sx = seam * W;
+    // floor
+    gl.useProgram(P.floor.p);
+    gl.uniformMatrix4fv(P.floor.u.uVP, false, F32(VP)); gl.uniformMatrix4fv(P.floor.u.uLightVP, false, F32(LIGHT_VP));
+    gl.uniform3fv(P.floor.u.uBg, C.bg); gl.uniform3fv(P.floor.u.uTwinC, C.twin); gl.uniform3fv(P.floor.u.uCenter, SCENE_C); gl.uniform1f(P.floor.u.uSeam, sx);
+    gl.uniform1i(P.floor.u.uShadow, 0); gl.uniform1f(P.floor.u.uRoom, ROOM);
+    gl.bindVertexArray(FLOOR.v); gl.drawArrays(gl.TRIANGLES, 0, FLOOR.n);
+    // taped route
+    gl.useProgram(P.flat.p);
+    gl.uniformMatrix4fv(P.flat.u.uVP, false, F32(VP)); gl.uniformMatrix4fv(P.flat.u.uModel, false, F32(I4()));
+    gl.uniform3fv(P.flat.u.uColL, C.tape); gl.uniform3fv(P.flat.u.uColR, C.twin); gl.uniform1f(P.flat.u.uSeam, sx); gl.uniform1f(P.flat.u.uSide, 0); gl.uniform1f(P.flat.u.uAlpha, 1);
+    gl.bindVertexArray(TAPEV.v); gl.drawArrays(gl.TRIANGLES, 0, TAPEV.n);
+    // solids: depth for the whole view (hidden lines on the twin side), colour on the physical side
+    gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 2);
+    gl.useProgram(P.depth.p); gl.colorMask(false, false, false, false); gl.uniformMatrix4fv(P.depth.u.uVP, false, F32(VP));
+    for (const [g, M] of models) { gl.uniformMatrix4fv(P.depth.u.uModel, false, F32(M)); gl.bindVertexArray(g.v); gl.drawElements(gl.TRIANGLES, g.n, g.type, 0); }
+    gl.colorMask(true, true, true, true);
+    gl.useProgram(P.solid.p);
+    gl.uniformMatrix4fv(P.solid.u.uVP, false, F32(VP)); gl.uniformMatrix4fv(P.solid.u.uLightVP, false, F32(LIGHT_VP));
+    gl.uniform3fv(P.solid.u.uEye, eye); gl.uniform3fv(P.solid.u.uLdir, LDIR); gl.uniform3fv(P.solid.u.uLit, C.lit); gl.uniform3fv(P.solid.u.uShade, C.shade);
+    gl.uniform1f(P.solid.u.uSeam, sx); gl.uniform1i(P.solid.u.uShadow, 0); gl.uniform3fv(P.solid.u.uBgC, C.bg); gl.uniform3fv(P.solid.u.uTwinC, C.twin);
+    for (const [g, M, robot] of models) {
+      gl.uniform3fv(P.solid.u.uLit, robot ? C.rlit : C.lit); gl.uniform3fv(P.solid.u.uShade, robot ? C.rshade : C.shade); gl.uniform1f(P.solid.u.uSmooth, 0);
+      drawSolid(P.solid, g, M);
+    }
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    // CAD edges on the twin side
+    gl.useProgram(P.flat.p);
+    gl.uniform3fv(P.flat.u.uColL, C.twin); gl.uniform3fv(P.flat.u.uColR, C.twin); gl.uniform1f(P.flat.u.uSide, 1);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    for (const [g, M, robot] of models) { gl.uniform1f(P.flat.u.uAlpha, robot ? 0.5 : 0.85); gl.uniformMatrix4fv(P.flat.u.uModel, false, F32(M)); gl.bindVertexArray(g.v); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.eb);
+      gl.drawElements(gl.LINES, g.en, g.type, 0); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, g.ib); }
+    gl.depthMask(true); gl.disable(gl.BLEND);
+  }
+
   function draw(sec, now) {
     mouse[0] += (goal[0] - mouse[0]) * 0.05; mouse[1] += (goal[1] - mouse[1]) * 0.05;
     const k = Math.min(1, scrollY / innerHeight);
-    const az = CAM.az + mouse[0] * 0.1 + Math.sin(sec * 0.06) * 0.03, el = CAM.el + mouse[1] * 0.035 + k * 0.1, dist = CAM.dist + k * 2.5;
-    const M = viewProj(eyeOf(az, el, dist, CAM.target), CAM.target, W / H);
-    gl.uniformMatrix4fv(u.uVP, false, M);
-
-    // the seam drifts slowly; on a desktop it leans toward the cursor while you move it
-    const drift = 0.52 + 0.16 * Math.sin(sec * 0.11);
+    const az = CAM.az + mouse[0] * 0.08 + Math.sin(sec * 0.05) * 0.02, el = CAM.el + mouse[1] * 0.03 + k * 0.08, dist = CAM.dist + k * 1.2;
+    const eye = [CAM.target[0] + dist * Math.cos(el) * Math.sin(az), CAM.target[1] + dist * Math.sin(el), CAM.target[2] + dist * Math.cos(el) * Math.cos(az)];
+    const VP = mul(persp(CAM.fov, W / H, 0.1, 60), lookAt(eye, CAM.target));
+    const drift = 0.52 + 0.14 * Math.sin(sec * 0.1);
     const want = (now - lastMove < 3000) ? Math.min(0.86, Math.max(0.14, goal[0] + 0.5)) : drift;
     seam += (want - seam) * (still ? 1 : 0.03);
-    gl.uniform1f(u.uSeam, seam * W);
 
-    // the robot patrols; the arm works; both sides share the same state
-    const w = 0.5 + 0.5 * Math.sin(sec * 0.16), amr = [AMR_A[0] + (AMR_B[0] - AMR_A[0]) * w, AMR_A[2] + (AMR_B[2] - AMR_A[2]) * w];
-    gl.uniform2f(u.uAmr, amr[0], amr[1]);
-    const q = armQ(sec), J = armJoints(q), tmp = [];
-    for (let i = 0; i < 4; i++) tubePts(J[i], J[i + 1], ARM_R[i], ARM_RINGS, ARM_PER, tmp);
-    posData.set(tmp, armStart * 3);
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf); gl.bufferSubData(gl.ARRAY_BUFFER, armStart * 12, posData, armStart * 3, armCount * 3);
-
-    gl.uniform1f(u.uTime, still ? 1.0 : sec); gl.uniform1f(u.uFade, 1 - 0.55 * k);
-    gl.clearColor(clear[0], clear[1], clear[2], 1); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.POINTS, 0, COUNT);
+    const models = [[LAB, I4()]];
+    let tb = null, q = armQ(sec), T = null;
+    if (robots) {
+      const [x, z, yaw] = along(sec * SPEED); tb = [x, z, yaw];
+      T = armPose(q);
+      for (const p of robots.parts) {
+        if (p.name.startsWith('tb3/')) models.push([p.g, mul(mul(mul(trans(x, 0, z), rotY(-yaw)), [RS, 0, 0, 0, 0, RS, 0, 0, 0, 0, RS, 0, 0, 0, 0, 1]), ZUP), true]);
+        else { const m = T[p.name.slice(6)]; if (m) models.push([p.g, m, true]); }
+      }
+    }
+    // shadow pass
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFB); gl.viewport(0, 0, SM, SM); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+    gl.clear(gl.DEPTH_BUFFER_BIT); gl.colorMask(false, false, false, false);
+    drawScene(LIGHT_VP, null, models, 'shadow');
+    gl.colorMask(true, true, true, true); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // main pass
+    gl.viewport(0, 0, W, H); gl.clearColor(C.bg[0], C.bg[1], C.bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, shadowTex);
+    drawScene(VP, eye, models, 'main');
+    canvas.style.opacity = (1 - 0.5 * k).toFixed(3);
 
     // overlay
-    const sx = seam * innerWidth, fade = (1 - 0.6 * k).toFixed(3);
-    ov.style.opacity = fade;
-    seamEl.style.transform = `translateX(${sx.toFixed(1)}px)`;
-    sideL.style.transform = `translateX(${(sx - 14).toFixed(1)}px) translateX(-100%)`;
-    sideR.style.transform = `translateX(${(sx + 14).toFixed(1)}px)`;
-    const place = (el, p, text, dir = 1, dy = 0) => {                  // a tag hangs off its asset, never under the hero figure
-      if (text !== null) el.textContent = text;
-      const [x, y0] = project(M, p), y = y0 + dy, w = el.offsetWidth || 200, h = 18;
-      const L = dir > 0 ? x + 10 : x - 10 - w, R = L + w, T = y - h / 2, B = y + h / 2, f = figRect;
-      el.style.transform = `translate(${L.toFixed(1)}px, ${T.toFixed(1)}px)`;
-      const hit = f && R > f.left - 8 && L < f.right + 8 && B > f.top - 8 && T < f.bottom + 8;
-      el.classList.toggle('on', !hit && L > sx + 8 && R < innerWidth - 8 && T > 92 && B < innerHeight - 8);
-    };
-    const refresh = still || ++tagTick % 6 === 0;                       // numbers update ~10 times a second
+    const sxp = seam * innerWidth;
+    ov.style.opacity = (1 - 0.6 * k).toFixed(3);
+    seamEl.style.transform = `translateX(${sxp.toFixed(1)}px)`;
+    sideL.style.transform = `translateX(${(sxp - 14).toFixed(1)}px) translateX(-100%)`;
+    sideR.style.transform = `translateX(${(sxp + 14).toFixed(1)}px)`;
+    const refresh = still || ++tick % 6 === 0;
     if (refresh || !figRect) figRect = figEl ? figEl.getBoundingClientRect() : null;
-    const v = Math.abs(0.08 * Math.cos(sec * 0.16)) * Math.hypot(AMR_B[0] - AMR_A[0], AMR_B[2] - AMR_A[2]);
-    const deg = (r) => `${(r * 180 / Math.PI).toFixed(0)}°`;
-    place(tags.amr, [amr[0], 0, amr[1]], refresh ? `AMR-01 · x ${amr[0].toFixed(2)} m · z ${amr[1].toFixed(2)} m · ${v.toFixed(2)} m/s` : null, 1, 24);
-    place(tags.arm, [J[2][0], J[2][1] + 0.2, J[2][2]], refresh ? `ARM-01 · q ${deg(q[0])} ${deg(q[1] - Math.PI / 2)} ${deg(q[2] - 0.8)}` : null, -1, 14);
+    const project = (p) => { const x = VP[0] * p[0] + VP[4] * p[1] + VP[8] * p[2] + VP[12], y = VP[1] * p[0] + VP[5] * p[1] + VP[9] * p[2] + VP[13], w = VP[3] * p[0] + VP[7] * p[1] + VP[11] * p[2] + VP[15];
+      return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; };
+    const tag = (el, p, text, dir, dy) => {
+      if (text !== null) el.textContent = text;
+      const [x, y0] = project(p), y = y0 + dy, w = el.offsetWidth || 200, h = 18;
+      const L = dir > 0 ? x + 10 : x - 10 - w, R = L + w, Tp = y - h / 2, B = y + h / 2, f = figRect;
+      el.style.transform = `translate(${L.toFixed(1)}px, ${Tp.toFixed(1)}px)`;
+      const hit = f && R > f.left - 8 && L < f.right + 8 && B > f.top - 8 && Tp < f.bottom + 8;
+      el.classList.toggle('on', !hit && L > sxp + 8 && R < innerWidth - 8 && Tp > 92 && B < innerHeight - 8);
+    };
+    const deg = (r) => `${Math.round(r * 180 / Math.PI)}°`;
+    if (tb && T) {
+      const th = ((-tb[2] * 180 / Math.PI) % 360 + 360) % 360;
+      tag(tags.tb, [tb[0], 0.15, tb[1]], refresh ? `TB3-01 · x ${tb[0].toFixed(2)} m · y ${(-tb[1]).toFixed(2)} m · θ ${th.toFixed(0)}° · ${SPEED.toFixed(2)} m/s` : null, 1, 14);
+      tag(tags.arm, apply(T.upper_arm_link, [0, 0, 0]), refresh ? `SO-101 · q ${q.slice(0, 5).map(deg).join(' ')}` : null, -1, -26);
+    } else { tags.tb.classList.remove('on'); tags.arm.classList.remove('on'); }
   }
+  if (params.has('bgonly')) document.querySelector('.wrap').style.visibility = 'hidden';
   if (still) {
     const t = params.has('scan') ? +params.get('scan') : 6;
     redraw = () => { mouse[0] = goal[0]; mouse[1] = goal[1]; draw(t, -1e9); };
     redraw(); addEventListener('scroll', redraw, { passive: true }); return;
   }
   const t0 = performance.now();
-  (function tick(ts) {
-    requestAnimationFrame(tick);
+  (function frame(ts) {
+    requestAnimationFrame(frame);
     if (document.hidden) return;
     draw((ts - t0) / 1000, ts);
   })(t0);

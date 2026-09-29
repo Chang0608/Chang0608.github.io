@@ -239,6 +239,8 @@ footer .right { text-align: right; line-height: 2; }
 .dt-bg > * { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .dt-bg .grid { background-image: radial-gradient(circle, var(--field-dot) 0.9px, transparent 1.3px); background-size: 24px 24px; }
 .dt-bg.gl .grid { display: none; }
+/* keep the headline readable: the render softens behind the text column */
+.dt-bg canvas { -webkit-mask-image: radial-gradient(ellipse 34% 30% at 25% 47%, rgba(0,0,0,.22), #000 100%); mask-image: radial-gradient(ellipse 34% 30% at 25% 47%, rgba(0,0,0,.22), #000 100%); }
 /* the seam between the physical side and its twin, with live telemetry on the twin side */
 .tw-ov { position: absolute; inset: 0; pointer-events: none; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .tw-ov .seam { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: linear-gradient(transparent, color-mix(in srgb, var(--accent) 45%, transparent) 12%, color-mix(in srgb, var(--accent) 45%, transparent) 88%, transparent); }
