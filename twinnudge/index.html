@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TwinNudge · 3 min</title>
+<style>
+:root{
+  --bg:#05080F; --ink:#F2F6FC; --muted:#9AA9BD; --dim:#5D6C82; --line:rgba(255,255,255,.12);
+  --blue:#4EA1FF; --blue2:#9BCBFF; --orange:#FF8A3D; --orange2:#FFB685; --gold:#F2C14E;
+  --font:"Segoe UI Variable Display","Segoe UI","Inter",system-ui,sans-serif;
+  --cjk:"Microsoft JhengHei UI","Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+  --ease:cubic-bezier(.2,.75,.15,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden}
+body{font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:1920px;height:1080px;flex:none;overflow:hidden;background:var(--bg)}
+
+/* ---------- frame ---------- */
+.slide{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .6s ease,visibility 0s linear .6s}
+.slide.active{opacity:1;visibility:visible;transition:opacity .6s ease}
+.slide .notes{display:none}
+.amb{position:absolute;inset:-60px;width:calc(100% + 120px);height:calc(100% + 120px);filter:blur(50px) saturate(1.5) brightness(.36);opacity:.9;z-index:0;pointer-events:none}
+.vignette{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(1500px 950px at 50% 50%,transparent 40%,rgba(0,0,0,.6))}
+.glowbg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(900px 600px at 72% 55%,rgba(78,161,255,.10),transparent 70%)}
+.layer{position:absolute;z-index:3}
+.num{font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:-.03em}
+.grad{background:linear-gradient(92deg,#5AA8FF,#C9E4FF);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ib{display:inline-block;font-size:14px;font-weight:800;letter-spacing:.16em;padding:5px 11px;border-radius:999px;vertical-align:5px}
+.ib.real{color:#FFD9C2;background:rgba(255,138,61,.16);border:1.5px solid rgba(255,138,61,.75)}
+.ib.sim{color:#D5E9FF;background:rgba(78,161,255,.14);border:1.5px solid rgba(78,161,255,.75)}
+.tag{position:absolute;z-index:4;top:16px;font-size:20px;font-weight:700;padding:8px 16px;border-radius:12px;backdrop-filter:blur(8px)}
+.tag.o{color:#FFC29B;background:rgba(24,10,2,.74);border:1.5px solid rgba(255,138,61,.8)}
+.tag.bl{color:#BFE0FF;background:rgba(2,12,26,.74);border:1.5px solid rgba(78,161,255,.85)}
+.tag.w{color:#E9EFF7;background:rgba(5,8,15,.74);border:1.5px solid rgba(255,255,255,.35)}
+.tag.l{left:16px}.tag.r{right:16px}
+.est{position:absolute;z-index:4;bottom:14px;left:16px;font-size:16px;font-weight:600;padding:5px 12px;border-radius:9px;background:rgba(5,8,15,.74);color:#DDE6F2;border:1px solid rgba(255,255,255,.2)}
+
+/* ---------- the AI chain: one element for the whole talk ---------- */
+#chain{position:absolute;left:96px;top:24px;width:1728px;height:110px;z-index:8;transition:transform 1.2s var(--ease)}
+#chain.hero{transform:translateY(700px)}
+#chain .track{position:absolute;left:144px;width:1440px;top:26px;height:3px;border-radius:2px;background:rgba(255,255,255,.10)}
+#chain .fill{position:absolute;left:0;top:-5px;height:13px;width:0;overflow:hidden;transition:width 1.1s var(--ease)}
+#chain .fill::before{content:"";position:absolute;left:0;right:0;top:5px;height:3px;background:linear-gradient(90deg,#2F7FE0,#9BCBFF);box-shadow:0 0 12px rgba(78,161,255,.9)}
+#chain .fill::after{content:"";position:absolute;top:0;width:110px;height:13px;background:radial-gradient(ellipse at center,rgba(235,246,255,.95),rgba(155,203,255,0) 70%);animation:run 2.4s linear infinite}
+@keyframes run{from{left:-110px}to{left:100%}}
+#chain .node{position:absolute;top:0;width:288px;display:flex;flex-direction:column;align-items:center;text-align:center;transition:opacity .6s ease,transform .7s var(--ease)}
+#chain .disc{flex:none;position:relative;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:800;color:#6F7F96;background:#0A101B;border:1.5px solid rgba(255,255,255,.18);transition:all .6s var(--ease)}
+#chain .tx{margin-top:9px}
+#chain .tx b{display:block;font-size:21px;line-height:1.15;color:#6F7F96;transition:color .5s}
+#chain .tx span{display:block;font-size:15px;margin-top:2px;color:#4E5D72;transition:color .5s}
+#chain .node.past .disc{color:#06101E;background:linear-gradient(135deg,#B9DCFF,#4EA1FF);border-color:#CFE6FF}
+#chain .node.past .tx b{color:#C9DDF2}
+#chain .node.past .tx span{color:#7C8BA0}
+#chain .node.cur .disc{color:#fff;background:radial-gradient(circle at 35% 30%,#6DB4FF,#1D5FB8);border-color:#CFE6FF;box-shadow:0 0 34px rgba(78,161,255,.9);transform:scale(1.14)}
+#chain .node.cur .disc::after{content:"";position:absolute;inset:-9px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 68%,rgba(190,225,255,.95) 86%,transparent 100%);-webkit-mask:radial-gradient(circle,transparent 34px,#000 35px,#000 38px,transparent 39px);mask:radial-gradient(circle,transparent 34px,#000 35px,#000 38px,transparent 39px);animation:spin 2.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#chain .node.cur .tx b{color:#fff}
+#chain .node.cur .tx span{color:var(--blue2)}
+#chain.hero .node{opacity:0;transform:translateY(18px)}
+#chain.hero .node.lit{opacity:1;transform:none}
+#chain .node.lit .disc{color:#E3F0FF;border-color:rgba(155,203,255,.85);box-shadow:0 0 24px rgba(78,161,255,.5)}
+#chain .node.lit .tx b{color:#fff}
+#chain .node.lit .tx span{color:var(--blue2)}
+#chain.done .node .disc{animation:pop .7s var(--ease) both;animation-delay:calc(var(--k) * .12s + .3s)}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.25);box-shadow:0 0 40px rgba(155,203,255,1)}100%{transform:scale(1)}}
+body.static #chain .node .disc{animation:none}
+body.static #chain .fill::after,body.static #chain .node.cur .disc::after{display:none}
+
+/* ---------- link pages: question + need / found / so on the left, how on the right ---------- */
+.lc{position:absolute;z-index:3;left:96px;top:196px;width:724px}
+.lc .k{font-size:20px;font-weight:800;letter-spacing:.2em;color:var(--blue2);text-transform:uppercase}
+.lc .q{font-size:64px;line-height:1.06;font-weight:800;letter-spacing:-.022em;margin-top:12px}
+.beats{margin-top:34px;display:flex;flex-direction:column;gap:14px}
+.beat{display:grid;grid-template-columns:100px 1fr;gap:18px;align-items:start;padding:18px 22px;border-radius:18px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
+.beat .t{font-size:14px;font-weight:800;letter-spacing:.18em;padding:6px 0;text-align:center;border-radius:999px;margin-top:3px}
+.t.need{color:#C9D2DE;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.28)}
+.t.found{color:#FFD0B0;background:rgba(255,138,61,.12);border:1px solid rgba(255,138,61,.6)}
+.t.so{color:#D5E9FF;background:rgba(78,161,255,.22);border:1px solid rgba(78,161,255,.85)}
+.beat p{font-size:25px;line-height:1.38;color:#D3DCE8}
+.beat p b{color:#fff;font-weight:650}
+.beat.so{background:linear-gradient(135deg,rgba(78,161,255,.17),rgba(78,161,255,.05));border-color:rgba(78,161,255,.6);box-shadow:0 0 44px rgba(78,161,255,.18)}
+.beat.so p{color:#E6F1FF}
+.beat.so p b{color:var(--blue2)}
+.beat.dim{opacity:.42!important}
+.beat .more{margin-top:12px;padding-top:12px;border-top:1px solid rgba(155,203,255,.25)}
+.rp{position:absolute;z-index:2;left:864px;top:196px;width:960px;height:720px;border-radius:24px;overflow:hidden;background:#0b111c;box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+.rp.bare{background:none;box-shadow:none;overflow:visible;border-radius:0}
+.rp video,.rp canvas{display:block;width:100%;height:100%;object-fit:cover}
+.cap{position:absolute;z-index:3;left:864px;top:932px;width:960px;font-size:19px;line-height:1.4;color:var(--muted)}
+.cap b{color:var(--ink);font-weight:600}
+
+/* steps + entrance */
+[data-at]{opacity:0;transform:translateY(24px);transition:opacity .7s var(--ease),transform .9s var(--ease)}
+[data-at].on{opacity:1;transform:none}
+[data-until]{transition:opacity .6s ease}
+[data-until].gone{opacity:0!important;pointer-events:none}
+.d1{transition-delay:.15s}.d2{transition-delay:.3s}.d3{transition-delay:.45s}.d4{transition-delay:.6s}
+body.static,body.static *{transition:none!important}
+
+/* ===== 0 · opening ===== */
+#s0 .bgv{position:absolute;inset:0;z-index:0}
+#s0 .bgv video{width:100%;height:100%;object-fit:cover;filter:brightness(.24) saturate(.9)}
+#s0 .shade{position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(5,8,15,.92),rgba(5,8,15,.4) 70%,rgba(5,8,15,.25)),linear-gradient(0deg,rgba(5,8,15,.95) 0%,rgba(5,8,15,0) 45%)}
+#s0 .logo{left:110px;top:140px;font-size:190px;font-weight:900;letter-spacing:-.045em;line-height:.9}
+#s0 .logo span{background:linear-gradient(92deg,#4EA1FF,#BFE0FF);-webkit-background-clip:text;background-clip:text;color:transparent}
+#s0 .tl{left:116px;top:345px;width:1300px;font-size:42px;line-height:1.3;font-weight:600;color:#E3EBF6}
+#s0 .tl b{color:var(--blue2)}
+#s0 .who{left:116px;top:500px;font-size:26px;color:var(--muted);line-height:1.55}
+#s0 .who b{color:var(--ink)}
+#s0 .ck{left:96px;top:664px;font-size:20px;font-weight:800;letter-spacing:.2em;color:var(--blue2);text-transform:uppercase}
+
+/* ===== 1.1 ===== */
+#s1 .lay{position:absolute;inset:0;background:#0b111c}
+#s1 .l0{z-index:1}#s1 .l1{z-index:2}
+#s1 .gt1,#s1 .gt2{transition:opacity .6s ease}
+#s1 .gt2{opacity:0}
+#s1.st2 .gt2{opacity:1}
+#s1.st2 .gt1{opacity:0}
+#s1 .lay[data-at]{transform:scale(1.04);transition:opacity .8s ease,transform 1.2s var(--ease)}
+#s1 .lay[data-at].on{transform:none}
+#s1 .qs{display:grid}
+#s1 .qs > .q{grid-area:1/1}
+#s1 .glg{position:absolute;z-index:4;left:16px;top:16px;padding:10px 16px;border-radius:12px;background:rgba(5,8,15,.74);border:1.5px solid rgba(255,255,255,.22);backdrop-filter:blur(8px);font-size:20px;font-weight:700;color:#E9EFF7;display:grid;gap:6px}
+#s1 .glg > div{display:flex;align-items:center;gap:12px}
+#s1 .glg .gt1,#s1 .glg .gt2,#s1 .gsc{transition:opacity .6s ease}
+#s1.st2 .glg .gt1{display:none}
+#s1:not(.st2) .glg .gt2{display:none}
+#s1 .ln{display:inline-block;width:40px;height:7px;border-radius:4px}
+#s1 .ln.dk{background:#3c4858;box-shadow:0 0 0 1.5px #E6EDF6}
+#s1 .ln.or{background:var(--orange)}
+#s1 .ln.bu{background:var(--blue)}
+#s1 .goal{position:absolute;z-index:4;left:178px;top:618px;font-size:20px;font-weight:800;color:#1b2430;background:rgba(242,193,78,.95);padding:6px 14px;border-radius:10px}
+#s1 .gsc{position:absolute;z-index:4;right:16px;bottom:14px;padding:6px 20px 10px;border-radius:16px;text-align:right;background:rgba(5,8,15,.82);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px);font-size:40px;font-weight:800;color:#E4ECF6;line-height:1}
+#s1 .gsc b{font-size:88px}
+#s1 .gsc span{display:block;font-size:18px;font-weight:600;color:#C9D6E6;margin-top:4px}
+#s1 .gsc.gt2{opacity:0}
+#s1.st2 .gsc.gt2{opacity:1}
+#s1.st2 .gsc.gt1{opacity:0}
+#s1 .caps{height:60px}
+body.pdf #s1.st0 .q1,body.pdf #s1:not(.st0) .q0{display:none}
+body.pdf #s1.st0 .beat.so{display:none!important}
+body.pdf #s1.st0 .beat.need0{display:grid!important;grid-template-columns:1fr;background:none;border:none;box-shadow:none;padding:0}
+body.pdf #s1.st0 .beat.need0>.t{display:none}
+body.pdf #s1.st0 .beat.need0 p{font-size:40px!important;line-height:1.28!important;color:#C9D6E6!important;text-wrap:balance}
+#s1 .caps > div{position:absolute;left:0;top:0;width:960px;transition:opacity .5s ease}
+#s1 .caps .c1,#s1 .caps .c2{opacity:0}
+#s1.st1 .caps .c1,#s1.st2 .caps .c2{opacity:1}
+
+/* ===== 1.2 ===== */
+#s2 .cell{position:absolute;left:486px;top:365px;width:474px;height:355px;border-radius:0;overflow:hidden;background:#0d1522}
+#s2 .phases{position:absolute;inset:0;padding:22px 24px;display:flex;flex-direction:column;gap:10px}
+#s2 .ph{padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.10);opacity:.4;transition:all .5s var(--ease)}
+#s2 .ph.live{opacity:1;background:rgba(78,161,255,.16);border-color:rgba(78,161,255,.8);box-shadow:0 0 30px rgba(78,161,255,.25)}
+#s2 .ph .n{font-size:15px;font-weight:800;letter-spacing:.16em;color:var(--blue2)}
+#s2 .ph div{font-size:21px;font-weight:650;line-height:1.2;margin-top:3px}
+#s2 .ph span{display:block;font-size:15px;color:var(--muted);margin-top:4px;line-height:1.3}
+#s2 .sweep{position:absolute;inset:0;z-index:2}
+#s2 .sweep video{width:100%;height:100%;object-fit:cover}
+#s2 .sweep .ct{position:absolute;left:0;right:0;bottom:0;padding:16px 20px 14px;background:linear-gradient(0deg,rgba(5,8,15,.92),rgba(5,8,15,0))}
+#s2 .sweep .ct .num{font-size:64px;line-height:1}
+#s2 .sweep .ct div{font-size:17px;color:#DCE6F2}
+
+/* ===== 1.3 ===== */
+#s3 .pt{opacity:0;transform:translateY(-50px);transition:opacity .6s ease,transform .9s var(--ease),fill .5s,r .5s}
+#s3.rain .pt{opacity:1;transform:none}
+#s3 .tally{position:absolute;z-index:4;right:28px;top:446px;width:372px;padding:18px 22px;border-radius:18px;background:rgba(8,16,30,.9);border:1px solid rgba(78,161,255,.6);box-shadow:0 0 40px rgba(78,161,255,.2)}
+#s3 .tally .k{font-size:14px;letter-spacing:.16em;font-weight:800;color:var(--blue2)}
+#s3 .tally .row{display:flex;justify-content:space-between;align-items:baseline;font-size:22px;margin-top:6px}
+#s3 .tally .num{font-size:52px;line-height:1.05}
+
+/* ===== 1.4 ===== */
+#s4 .big{display:flex;align-items:baseline;gap:16px;margin-top:10px}
+#s4 .big .from{font-size:62px;color:var(--orange2)}
+#s4 .big .to{font-size:96px;line-height:1}
+#s4 .big .ar{font-size:44px;color:var(--dim)}
+#s4 .big .u{font-size:32px;color:var(--muted);font-weight:700}
+#s4 .small{font-size:19px;color:#AFC3DB;margin-top:2px}
+#s4 .hint{position:absolute;z-index:4;right:16px;bottom:14px;font-size:16px;color:#C9D6E6;padding:5px 12px;border-radius:9px;background:rgba(5,8,15,.7)}
+body.static #s4 .hint{display:none}
+body.pdf .lc [data-at]{opacity:1!important;transform:none!important}
+body.pdf .beat.dim{opacity:1!important}
+body.pdf .beat:not(.so){display:none!important}
+body.pdf .beat.so{grid-template-columns:1fr;padding:22px 26px}
+body.pdf .beat.so>.t{display:none}
+body.pdf .beat.so p{font-size:34px!important;line-height:1.3!important}
+body.pdf .beat .more{font-size:28px}
+body.pdf #chain .tx span{display:none}
+body.pdf .cap,body.pdf .caps div{font-size:24px!important;line-height:1.35}
+body.pdf .lc{top:196px;height:720px;display:flex;flex-direction:column;justify-content:center}
+body.pdf .lc .q{font-size:84px;line-height:1.04;margin-top:18px}
+body.pdf .lc .q,body.pdf .beat.so p,body.pdf .beat .more{text-wrap:balance}
+body.pdf .lc .beats{margin-top:40px}
+body.pdf .beat.so{background:none;border:none;box-shadow:none;padding:0}
+body.pdf .beat.so p{font-size:40px!important;line-height:1.28!important;color:#C9D6E6!important}
+body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22px}
+
+/* ===== 1.5 ===== */
+#s5 .row{position:absolute;left:0;top:0;width:960px;height:96px}
+#s5 .row svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#s5 .nd{position:absolute;top:0;width:200px;height:96px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:27px;font-weight:800;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.22)}
+#s5 .nd span{font-size:16px;font-weight:500;color:var(--muted);margin-top:2px}
+#s5 .nd.tn{background:rgba(78,161,255,.2);border:2px solid rgba(78,161,255,.9);box-shadow:0 0 50px rgba(78,161,255,.45)}
+#s5 .lg{position:absolute;left:0;top:112px;width:960px;display:flex;justify-content:center;gap:40px;font-size:19px;color:var(--muted)}
+#s5 .lg i{display:inline-block;width:34px;height:6px;border-radius:3px;margin-right:10px;vertical-align:4px}
+#s5 .pair{position:absolute;left:0;top:172px;width:960px;height:514px;border-radius:22px;overflow:hidden;background:url(assets/hover_pair.jpg) center/100% 100% no-repeat;box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+#s5 .veil{position:absolute;z-index:3;top:0;bottom:0;left:50.53%;right:0;display:grid;place-items:center;background:rgba(5,8,15,.86);backdrop-filter:blur(6px);font-size:30px;font-weight:800;color:var(--blue2)}
+#s5 .pair .tag.bl{left:calc(50.53% + 16px)}
+
+/* ===== 1.6 ===== */
+#s6 .once{position:absolute;left:0;top:0;width:960px;height:396px;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);transition:opacity .6s,filter .6s}
+#s6 .once video{width:100%;height:100%;object-fit:cover}
+#s6.st2 .once{opacity:.55;filter:saturate(.6)}
+#s6 .every{position:absolute;left:0;top:420px;width:960px;height:300px;border-radius:22px;padding:22px 28px;background:rgba(78,161,255,.08);border:1px solid rgba(78,161,255,.45)}
+#s6 .every .k{font-size:15px;letter-spacing:.18em;font-weight:800;color:var(--blue2)}
+#s6 .flow{position:relative;height:84px;margin-top:14px}
+#s6 .flow svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#s6 .fb{position:absolute;top:0;height:84px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.22);text-align:center;line-height:1.15}
+#s6 .fb span{font-size:15px;color:var(--muted);font-weight:500;margin-top:3px}
+#s6 .fb.tn{background:rgba(78,161,255,.2);border:2px solid rgba(78,161,255,.9);box-shadow:0 0 34px rgba(78,161,255,.4)}
+#s6 .ms{display:flex;align-items:baseline;gap:22px;margin-top:22px}
+#s6 .ms .num{font-size:96px;line-height:1}
+#s6 .ms div{font-size:22px;color:#DCE6F2;line-height:1.35}
+
+/* ===== result ===== */
+#s7 .head{left:96px;top:150px;width:1728px}
+#s7 .head .k{font-size:20px;font-weight:800;letter-spacing:.2em;color:var(--blue2);text-transform:uppercase}
+#s7 .head .h{font-size:62px;font-weight:800;letter-spacing:-.02em;margin-top:8px}
+#s7 .head .h .b{color:var(--blue2)}
+#s7 .pv{position:absolute;z-index:2;top:290px;width:840px;height:630px;border-radius:24px;overflow:hidden;background:#0b111c;box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);transition:opacity .8s,filter .8s}
+#s7 .pv video{width:100%;height:100%;object-fit:cover}
+#s7 .pv.L{left:96px}
+#s7 .pv.R{left:984px}
+#s7.st0 .pv.R{opacity:.28;filter:grayscale(.8)}
+#s7 .score{position:absolute;z-index:4;right:16px;bottom:14px;padding:8px 20px 10px;border-radius:16px;text-align:right;background:rgba(5,8,15,.82);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px)}
+#s7 .score .num{font-size:92px;line-height:1}
+#s7 .score div{font-size:17px;color:#E4ECF6}
+#s7 .wait{position:absolute;z-index:4;left:984px;top:290px;width:840px;height:630px;display:grid;place-items:center;font-size:40px;font-weight:800;color:var(--blue2)}
+#s7 .foot{left:96px;top:944px;width:1728px;display:flex;align-items:center;justify-content:space-between;gap:30px}
+#s7 .gr{font-size:24px;color:#C9D6E6;line-height:1.35}
+#s7 .gr b{color:var(--blue2);font-size:30px}
+#s7 .motto{text-align:right;font-size:40px;font-weight:800;line-height:1.15}
+#s7 .motto b{color:var(--blue2)}
+#s7 .motto span{display:block;font-size:22px;color:var(--muted);font-weight:600;margin-top:6px}
+
+/* notes */
+#notes{position:fixed;left:0;right:0;bottom:0;height:32vh;background:rgba(4,7,13,.96);border-top:1px solid #22324a;color:#E8EEF7;font-family:var(--cjk);display:none;padding:16px 26px;z-index:20}
+#notes.on{display:block}
+#notes .meta{font-family:var(--font);font-size:15px;color:#8FA2BC;display:flex;gap:26px;margin-bottom:10px}
+#notes .meta b{color:#CFE3FF}
+#notes .txt{font-size:23px;line-height:1.7;max-width:1600px}
+#prog{position:absolute;left:0;bottom:0;height:4px;z-index:9;background:linear-gradient(90deg,var(--blue),#B9DCFF);box-shadow:0 0 12px rgba(78,161,255,.8);transition:width .6s var(--ease)}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+
+<!-- =================== 0 · OPENING =================== -->
+<section class="slide" id="s0" data-time="10" data-chain="hero">
+  <div class="bgv"><video src="assets/sweep_wall.mp4" poster="assets/sweep_wall_poster.jpg" muted loop playsinline preload="auto"></video></div>
+  <div class="shade"></div>
+  <div class="layer logo" data-at="0">Twin<span>Nudge</span></div>
+  <div class="layer tl d2" data-at="0">A learned correction that lets robot AI trained in a digital twin <b>work on the real arm</b></div>
+  <div class="layer who d3" data-at="0"><b>Kai-Chi Chang 張凱淇</b><br>Department of Computer Science, National Tsing Hua University</div>
+  <div class="layer ck d4" data-at="0">Every link of the AI pipeline, built by me</div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== 1.1 · WHAT TO LEARN =================== -->
+<section class="slide" id="s1" data-time="30" data-link="0" data-steps="2">
+  <canvas class="amb" data-src="#s1 video"></canvas><div class="vignette"></div>
+  <div class="lc">
+    <div class="k" data-at="0">1.1 · What to learn</div>
+    <div class="qs">
+      <div class="q q0" data-at="0" data-until="0">Same command.<br><span class="b">Off by degrees.</span></div>
+      <div class="q q1" data-at="1">A few degrees off.<br><span class="b">Every grasp fails.</span></div>
+    </div>
+    <div class="beats">
+      <div class="beat d1 need0" data-at="0"><span class="t need">NEED</span><p>Trained only in the twin: <b>zero real demonstrations.</b></p></div>
+      <div class="beat" data-at="1"><span class="t found">FOUND</span><p>A few degrees off, and <b>even NVIDIA's GR00T misses.</b></p></div>
+      <div class="beat so" data-at="2"><span class="t so">SO</span><div><p style="font-size:29px;line-height:1.3;color:#fff"><b>Retrain nothing.</b> Learn only the nudge&nbsp;<b>Δq</b>.</p></div></div>
+    </div>
+  </div>
+  <div class="rp" data-at="0">
+    <div class="lay l0"><video src="assets/state_gap.mp4" poster="assets/state_gap_poster.jpg" muted loop playsinline preload="auto"></video>
+      <div class="tag w l"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>same command, twin over the photo</div></div>
+    <div class="lay l1" data-at="1"><canvas id="grc" width="960" height="720"></canvas>
+      <div class="glg"><div><i class="ln dk"></i>GR00T's plan</div><div class="gt1"><i class="ln or"></i>where the arm went</div><div class="gt2"><i class="ln bu"></i>where the arm went</div></div>
+      <div class="goal">&#9650; Goal: stand a vial here</div>
+      <div class="gsc gt1"><b style="color:var(--orange)">3</b>/50<span>vials placed</span></div>
+      <div class="gsc gt2"><b style="color:var(--blue)">28</b>/50<span>vials placed</span></div></div>
+  </div>
+  <div class="cap caps" data-at="0">
+    <div data-until="0">Our real SO-101. <b>Coloured:</b> where the twin puts the arm. <b>White:</b> where the real arm is.</div>
+    <div class="c1">NVIDIA's own vial scene. The arm is given <b>our real arm's measured error.</b></div>
+    <div class="c2"><b>+ TwinNudge.</b> Not one parameter of GR00T changed.</div>
+  </div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== 1.2 · LABELS =================== -->
+<section class="slide" id="s2" data-time="35" data-link="1" data-steps="3">
+  <canvas class="amb" data-src="#fit4"></canvas><div class="vignette"></div>
+  <div class="lc">
+    <div class="k" data-at="0">1.2 · Labels</div>
+    <div class="q" data-at="0">The arm can’t<br>see <span class="b">its own error.</span></div>
+    <div class="beats">
+      <div class="beat d1" data-at="0"><span class="t need">NEED</span><p>Labels: <b>where the arm truly is.</b></p></div>
+      <div class="beat" data-at="1"><span class="t found">FOUND</span><p>Its encoders <b>miss most of the gap.</b></p></div>
+      <div class="beat so" data-at="2"><span class="t so">SO</span><div><p><b>Fit the twin onto three camera views.</b> The shift is the label.</p>
+        <p class="more" data-at="3"><b>×1,002</b> real poses in under 2 hours.</p></div></div>
+    </div>
+  </div>
+  <div class="rp" data-at="0">
+    <canvas id="fit4" width="960" height="720"></canvas>
+    <div class="tag w l"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>one pose, three calibrated cameras</div>
+    <div class="cell">
+      <div class="phases">
+        <div class="ph" data-t0="0" data-t1="1"><div class="n">01</div><div>The twin starts at the command</div><span>coloured link by link, off the real arm</span></div>
+        <div class="ph" data-t0="1" data-t1="5"><div class="n">02</div><div>Pulled onto all three silhouettes</div><span>SAM 3 masks · Levenberg–Marquardt · no differentiable renderer</span></div>
+        <div class="ph" data-t0="5" data-t1="99"><div class="n">03</div><div>The pull is the label Δq*</div><span>one pose, one label</span></div>
+      </div>
+      <div class="sweep" data-at="3" data-hold="3">
+        <video src="assets/sweep_wall.mp4" poster="assets/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="assets/sweep_dots_still.jpg"></video>
+        <div class="ct"><span class="num grad" data-count="1002" data-dur="3000">1,002</span><div>real poses · one sweep · under 2 hours</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cap" data-at="0">The real arm in three views. The fit uses the masks' distance fields, so <b>any simulator's renderer</b> can be plugged in.</div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== 1.3 · TRAINING =================== -->
+<section class="slide" id="s3" data-time="35" data-link="2" data-steps="2">
+  <div class="glowbg"></div>
+  <div class="lc">
+    <div class="k" data-at="0">1.3 · Training</div>
+    <div class="q" data-at="0">The error <span class="b">flips sign.</span></div>
+    <div class="beats">
+      <div class="beat d1" data-at="0"><span class="t need">NEED</span><p>Hold on <b>poses it never saw.</b></p></div>
+      <div class="beat" data-at="1"><span class="t found">FOUND</span><p>Past the shoulder, <b>a fixed offset corrects the wrong way.</b></p></div>
+      <div class="beat so" data-at="2"><span class="t so">SO</span><p>A <b>small MLP</b>, picked by <b>its worst poses</b>, not the average.</p></div>
+    </div>
+  </div>
+  <div class="rp" data-at="0">
+    <svg id="s3svg" viewBox="0 0 960 720" width="960" height="720"></svg>
+    <div class="tag w l"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>516 labels from the sweep</div>
+    <div class="tally" data-at="2">
+      <div class="k">UNSEEN POSES MADE WORSE · OF 248</div>
+      <div class="row"><span>Constant offset</span><span class="num" style="color:var(--orange2)">12</span></div>
+      <div class="row"><span>TwinNudge MLP</span><span class="num" style="color:var(--blue2)">0</span></div>
+    </div>
+  </div>
+  <div class="cap" data-at="0">Each dot: one real pose. <b>Across:</b> gravity torque on the shoulder. <b>Up:</b> the correction it needed.</div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== 1.4 · EVALUATION =================== -->
+<section class="slide" id="s4" data-time="30" data-link="3" data-steps="2">
+  <canvas class="amb" data-src="#s4 canvas.wipe"></canvas><div class="vignette"></div>
+  <div class="lc">
+    <div class="k" data-at="0">1.4 · Evaluation</div>
+    <div class="q" data-at="0">No answer key?<br><span class="b">Check sim first.</span></div>
+    <div class="beats">
+      <div class="beat d1" data-at="0"><span class="t need">NEED</span><p>Proof on <b>poses it never saw.</b></p></div>
+      <div class="beat" data-at="1"><span class="t found">FOUND</span><p>The real arm has <b>no answer key.</b></p></div>
+      <div class="beat so" data-at="2"><span class="t so">SO</span><div><p>First where the answer is known: <b>simulation.</b></p>
+        <div class="big"><span class="ib sim">SIM</span><span class="num from">9.4</span><span class="ar">→</span><span class="num to grad"><span data-count="1.5" data-dec="1" data-from="9.4" data-dur="1600">1.5</span></span><span class="u">mm</span></div>
+        <div class="small">median, 512 new poses</div>
+        <p style="margin-top:10px">Then real photos of <b>unseen poses</b> →</p></div></div>
+    </div>
+  </div>
+  <div class="rp" data-at="0">
+    <canvas class="wipe" width="960" height="720"></canvas>
+    <div class="tag o l" id="wTagL"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>No correction</div>
+    <div class="tag bl l" id="wTagT" style="opacity:0"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>TwinNudge · poses it never saw</div>
+    <div class="tag o r" id="wTagR" style="opacity:0">No correction</div>
+    <div class="hint" data-at="2">drag to compare</div>
+  </div>
+  <div class="cap" data-at="0">248 unseen real poses. The MLP sees <b>only the command</b>, no image.</div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== 1.5 · DEPLOYMENT =================== -->
+<section class="slide" id="s5" data-time="13" data-link="4" data-steps="2">
+  <div class="glowbg"></div>
+  <div class="lc">
+    <div class="k" data-at="0">1.5 · Deployment</div>
+    <div class="q" data-at="0">Plug in.<br><span class="b">Retrain nothing.</span></div>
+    <div class="beats">
+      <div class="beat d1" data-at="0"><span class="t need">NEED</span><p>GR00T <b>isn't ours to retrain.</b></p></div>
+      <div class="beat" data-at="1"><span class="t found">FOUND</span><p>Policies trust <b>inputs like their training.</b></p></div>
+      <div class="beat so" data-at="2"><span class="t so">SO</span><p><b>Readings in</b>, corrected. <b>Commands out</b>, corrected.</p></div>
+    </div>
+  </div>
+  <div class="rp bare" data-at="0">
+    <div class="row">
+      <svg viewBox="0 0 960 96" id="s5svg" data-at="2"></svg>
+      <div class="nd" style="left:0">Policy<span>trained in the twin</span></div>
+      <div class="nd tn" style="left:380px">TwinNudge<span>the small MLP</span></div>
+      <div class="nd" style="left:760px">Real arm<span>servos + encoders</span></div>
+    </div>
+    <div class="lg" data-at="2"><span><i style="background:var(--blue)"></i>commands out, corrected</span><span><i style="background:#C9D2DE"></i>readings in, corrected</span></div>
+    <div class="pair">
+      <div class="tag o l"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>Raw command</div>
+      <div class="tag bl">TwinNudge command</div>
+      <div class="veil" data-until="1">+ TwinNudge</div>
+    </div>
+  </div>
+  <div class="cap" data-at="0">Real arm, <b>no policy in the loop</b>, the same target. Pink: where the gripper should be.</div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== 1.6 · SYSTEM COST =================== -->
+<section class="slide" id="s6" data-time="8" data-link="5" data-steps="2">
+  <canvas class="amb" data-src="#s6 .once video"></canvas><div class="vignette"></div>
+  <div class="lc">
+    <div class="k" data-at="0">1.6 · System cost</div>
+    <div class="q" data-at="0"><span class="b">1.4&nbsp;ms.</span><br>No new sensor.</div>
+    <div class="beats">
+      <div class="beat d1" data-at="0"><span class="t need">NEED</span><p><b>Nothing added</b> to the robot.</p></div>
+      <div class="beat" data-at="1"><span class="t found">FOUND</span><p>Cameras only <b>make labels.</b></p></div>
+      <div class="beat so" data-at="2"><span class="t so">SO</span><p>Run time: <b>commands and encoders only.</b></p></div>
+    </div>
+  </div>
+  <div class="rp bare" data-at="0">
+    <div class="once"><video src="assets/sweep_wall.mp4" poster="assets/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="assets/sweep_grid_still.jpg"></video>
+      <div class="tag w l">Once per arm · cameras · labels</div></div>
+    <div class="every" data-at="2">
+      <div class="k">EVERY CONTROL STEP · NO CAMERA</div>
+      <div class="flow">
+        <svg viewBox="0 0 904 84" id="s6svg"></svg>
+        <div class="fb" style="left:0;width:270px">command + encoder<span>what the arm already has</span></div>
+        <div class="fb tn" style="left:330px;width:244px">MLP × 3<span>invert the correction</span></div>
+        <div class="fb" style="left:634px;width:270px">corrected command<span>and corrected reading</span></div>
+      </div>
+      <div class="ms"><span class="num grad"><span data-count="1.4" data-dec="1" data-dur="1400">1.4</span> ms</span><div>per control step, both directions,<br>on a CPU</div></div>
+    </div>
+  </div>
+  <aside class="notes"></aside>
+</section>
+
+<!-- =================== RESULT · THE CHAIN, CLOSED =================== -->
+<section class="slide" id="s7" data-time="24" data-chain="done" data-steps="2">
+  <canvas class="amb" data-src="#s7 .pv.L video"></canvas><div class="vignette"></div>
+  <div class="layer head" data-at="0">
+    <div class="k">The chain, closed · <span class="ib real" style="vertical-align:3px">REAL ARM</span></div>
+    <div class="h">Same policy, same 20 layouts. <span class="b">Only the arm is aligned.</span></div>
+  </div>
+  <div class="pv L" data-at="0">
+    <video src="assets/real_fail.mp4" poster="assets/real_fail_poster.jpg" muted loop playsinline preload="auto"></video>
+    <div class="tag o l">Without TwinNudge</div>
+    <div class="est">Real: no ground truth · paths are our model's estimate</div>
+    <div class="score"><div class="num" style="color:var(--orange)">0/20</div><div>the safety stop ended every run</div></div>
+  </div>
+  <div class="pv R" data-at="0">
+    <video src="assets/real_success.mp4" poster="assets/real_success_poster.jpg" muted loop playsinline preload="auto" data-hold="1"></video>
+    <div class="tag bl l">With TwinNudge</div>
+    <div class="est">Real: no ground truth · paths are our model's estimate</div>
+    <div class="score" data-at="1"><div class="num" style="color:var(--blue2)">20/20</div><div>the same stop never fired</div></div>
+  </div>
+  <div class="wait" data-at="0" data-until="0">+ TwinNudge</div>
+  <div class="layer foot" data-at="2">
+    <div class="gr"><span class="ib sim">SIMULATION</span>&nbsp; NVIDIA's GR00T N1.6, unchanged, with our arm's error:<br><b>3 → 28 / 50</b> placed &nbsp;·&nbsp; on its own, no arm error: 25–31</div>
+    <div class="motto">Learn the residual, <b>not the world.</b><span>Thank you</span></div>
+  </div>
+  <aside class="notes"></aside>
+</section>
+
+<div id="chain"><div class="track"><div class="fill"></div></div></div>
+<div id="prog"></div>
+</div></div>
+
+<div id="notes"><div class="meta"></div><div class="txt"></div></div>
+
+<script src="assets/scatter_shoulder.js"></script>
+<script>
+(function(){
+  const qs = new URLSearchParams(location.search);
+  const STATIC = qs.has('static');
+  if (qs.has('pdf')) document.body.classList.add('pdf');   // pdf: one page per slide, every beat shown at full strength   // static: still frames, no motion (screenshots and the PDF, one page per step)
+  if (STATIC) {
+    document.body.classList.add('static');
+    document.querySelectorAll('video[data-still]').forEach(v => v.setAttribute('poster', v.dataset.still));
+  }
+  const $ = s => document.querySelector(s);
+  const stage = $('#stage');
+  const slides = [...document.querySelectorAll('.slide')];
+  let cur = -1, step = 0, t0 = null;
+  const fit = () => stage.style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`;
+  addEventListener('resize', fit); fit();
+
+  /* ---------- the AI chain (sections 1.1-1.6 of the 丙組 report) ---------- */
+  const LINKS = [['1.1', 'What to learn', 'only the residual'], ['1.2', 'Labels', 'fitted to photos'], ['1.3', 'Training', 'chosen by the data'],
+                 ['1.4', 'Evaluation', 'known answers first'], ['1.5', 'Deployment', 'kept in distribution'], ['1.6', 'System cost', 'encoders only']];
+  const chain = $('#chain'), fill = chain.querySelector('.fill');
+  const nodes = LINKS.map((l, k) => {
+    const n = document.createElement('div'); n.className = 'node'; n.style.left = (k * 288) + 'px'; n.style.setProperty('--k', k);
+    n.innerHTML = `<div class="disc">${l[0]}</div><div class="tx"><b>${l[1]}</b><span>${l[2]}</span></div>`;
+    chain.appendChild(n); return n;
+  });
+  function setChain(sl){
+    const mode = sl.dataset.chain || 'link', idx = +sl.dataset.link || 0;
+    chain.classList.toggle('hero', mode === 'hero');
+    chain.classList.remove('done'); void chain.offsetWidth; chain.classList.toggle('done', mode === 'done');
+    nodes.forEach((n, k) => {
+      n.classList.remove('past', 'cur', 'lit'); n.style.transitionDelay = '0s';
+      if (mode === 'hero') { n.style.transitionDelay = STATIC ? '0s' : (.7 + k * .22) + 's'; n.classList.add('lit'); }
+      else if (mode === 'done') n.classList.add('past');
+      else n.classList.add(k < idx ? 'past' : k === idx ? 'cur' : 'future');
+    });
+    fill.style.transitionDuration = mode === 'hero' && !STATIC ? '1.9s' : '';
+    fill.style.transitionDelay = mode === 'hero' && !STATIC ? '.7s' : '0s';
+    fill.style.width = (mode === 'link' ? idx * 288 : 1440) + 'px';
+  }
+
+  /* ---------- media helpers ---------- */
+  const imgs = new Map();
+  function img(url){ if (!imgs.has(url)) { const im = new Image(); im.src = url; imgs.set(url, im); } const im = imgs.get(url); return im.complete && im.naturalWidth ? im : null; }
+  function frameOf(v, poster){
+    if (v.tagName !== 'VIDEO') return v;
+    if (v.readyState >= 2 && !STATIC) return v;
+    return img(poster || v.getAttribute('poster'));
+  }
+  const dims = d => d.tagName === 'VIDEO' ? [d.videoWidth, d.videoHeight] : d.tagName === 'CANVAS' ? [d.width, d.height] : [d.naturalWidth, d.naturalHeight];
+  document.querySelectorAll('canvas.amb').forEach(c => { c.width = 96; c.height = 54; });
+  function drawAmb(sl){
+    sl.querySelectorAll('canvas.amb').forEach(c => {
+      const src = document.querySelector(c.dataset.src); if (!src) return;
+      const d = frameOf(src); if (!d) return; const [w, h] = dims(d); if (!w) return;
+      c.getContext('2d').drawImage(d, 0, 0, w, h, 0, 0, c.width, c.height);
+    });
+  }
+
+  /* ---------- 1.2: the one-pose fit, its three views re-laid out 2 x 2 ---------- */
+  const F = { cv: $('#fit4') };
+  F.v = Object.assign(document.createElement('video'), { src: 'assets/fit_one_pose.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
+  const CELLS = [[0, 0], [486, 0], [0, 365]], SX = [0, 640, 1280];
+  function drawFit(){
+    const d = frameOf(F.v, step >= 2 ? 'assets/fit_one_pose_poster.jpg' : 'assets/fit_one_pose_start.jpg'); if (!d) return;
+    const ctx = F.cv.getContext('2d'), s = dims(d)[0] / 1904;
+    ctx.fillStyle = '#0b111c'; ctx.fillRect(0, 0, 960, 720);
+    CELLS.forEach(([x, y], k) => ctx.drawImage(d, SX[k] * s, 0, 624 * s, 468 * s, x, y, 474, 355));
+  }
+
+  /* ---------- 1.1: GR00T clip, left half = no correction, right half = TwinNudge (1920 px each, 12 px gap) ---------- */
+  const G = { cv: $('#grc'), m: 0 };
+  G.v = Object.assign(document.createElement('video'), { src: 'assets/groot_follow.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
+  G.v.setAttribute('poster', 'assets/groot_follow_poster.jpg');
+  function drawGr(){
+    const d = frameOf(G.v); if (!d) return;
+    const ctx = G.cv.getContext('2d'), k = dims(d)[0] / 3852;
+    ctx.globalAlpha = 1; ctx.drawImage(d, 0, 0, 1920 * k, 1440 * k, 0, 0, 960, 720);
+    if (G.m > .001) { ctx.globalAlpha = G.m; ctx.drawImage(d, 1932 * k, 0, 1920 * k, 1440 * k, 0, 0, 960, 720); ctx.globalAlpha = 1; }
+  }
+
+  /* ---------- 1.4: wipe on one frame (left half of the clip = no correction, right half = MLP) ---------- */
+  const W = { cv: $('#s4 canvas.wipe'), x: 0, target: 0, drag: false };
+  W.v = Object.assign(document.createElement('video'), { src: 'assets/mlp_real.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
+  W.v.setAttribute('poster', STATIC ? 'assets/mlp_real_still.jpg' : 'assets/mlp_real_poster.jpg');
+  function drawWipe(){
+    const ctx = W.cv.getContext('2d'), d = frameOf(W.v); if (!d) return;
+    const k = dims(d)[0] / 1936, w = W.cv.width, h = W.cv.height;
+    ctx.drawImage(d, 0, 0, 960 * k, 720 * k, 0, 0, w, h);
+    if (W.x > .001) {
+      const X = W.x * w;
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, X, h); ctx.clip(); ctx.drawImage(d, 976 * k, 0, 960 * k, 720 * k, 0, 0, w, h); ctx.restore();
+      if (W.x < .999) {
+        const g = ctx.createLinearGradient(X - 40, 0, X + 40, 0);
+        g.addColorStop(0, 'rgba(78,161,255,0)'); g.addColorStop(.5, 'rgba(155,203,255,.55)'); g.addColorStop(1, 'rgba(78,161,255,0)');
+        ctx.fillStyle = g; ctx.fillRect(X - 40, 0, 80, h); ctx.fillStyle = '#EAF4FF'; ctx.fillRect(X - 2, 0, 4, h);
+        ctx.beginPath(); ctx.arc(X, h / 2, 24, 0, 7); ctx.fillStyle = '#4EA1FF'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#EAF4FF'; ctx.stroke();
+      }
+    }
+    $('#wTagL').style.opacity = W.x > .02 ? 0 : 1; $('#wTagT').style.opacity = W.x > .12 ? 1 : 0; $('#wTagR').style.opacity = W.x > .02 && W.x < .86 ? 1 : 0;
+  }
+  const wpos = e => { const r = W.cv.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+  W.cv.addEventListener('pointerdown', e => { if (step < 2) return; W.drag = true; W.x = W.target = wpos(e); W.cv.setPointerCapture(e.pointerId); });
+  W.cv.addEventListener('pointermove', e => { if (W.drag) W.x = W.target = wpos(e); });
+  W.cv.addEventListener('pointerup', () => W.drag = false);
+
+  /* ---------- flowing dots (negative begins: no dot parked at the origin) ---------- */
+  function dots(svg, paths, dur){
+    let s = '';
+    paths.forEach(([d, c], k) => {
+      s += `<path d="${d}" fill="none" stroke="${c}" stroke-opacity=".3" stroke-width="5" stroke-linecap="round"/>`;
+      [0, .5].forEach(o => s += `<circle r="8" fill="${c}" style="filter:drop-shadow(0 0 8px ${c})"><animateMotion dur="${dur}s" begin="-${(k * .25 + o * dur + .01).toFixed(2)}s" repeatCount="indefinite" path="${d}"/></circle>`);
+    });
+    $(svg).innerHTML = s;
+  }
+  dots('#s5svg', [['M 206,30 L 374,30', '#4EA1FF'], ['M 586,30 L 754,30', '#4EA1FF'], ['M 754,66 L 586,66', '#C9D2DE'], ['M 374,66 L 206,66', '#C9D2DE']], 1.6);
+  dots('#s6svg', [['M 276,42 L 324,42', '#9BCBFF'], ['M 580,42 L 628,42', '#9BCBFF']], .9);
+
+  /* ---------- 1.3: the real labels ---------- */
+  (function(){
+    const D = window.SCATTER || { points: [], constant: 6.56, flip_tau: .05 };
+    const L = 92, R = 936, T = 70, B = 630, x0 = -.2, x1 = .9, y0 = -8, y1 = 14;
+    const X = v => L + (v - x0) / (x1 - x0) * (R - L), Y = v => B - (v - y0) / (y1 - y0) * (B - T);
+    const F = 'font-family="Segoe UI"';
+    let s = `<rect class="flipz" x="${X(x0)}" y="${T}" width="${X(D.flip_tau) - X(x0)}" height="${B - T}" fill="rgba(242,193,78,.10)" stroke="rgba(242,193,78,.4)" stroke-dasharray="6 6" opacity="0"/>`;
+    for (let v = -5; v <= 10; v += 5) s += `<line x1="${L}" x2="${R}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,${v === 0 ? .35 : .08})"/><text x="${L - 14}" y="${Y(v) + 7}" fill="#7C8BA0" font-size="19" text-anchor="end" ${F}>${v > 0 ? '+' : ''}${v}°</text>`;
+    for (let v = 0; v <= .8; v += .2) s += `<text x="${X(v)}" y="${B + 32}" fill="#7C8BA0" font-size="19" text-anchor="middle" ${F}>${v.toFixed(1)}</text>`;
+    s += `<text x="${(L + R) / 2}" y="${B + 66}" fill="#9AA9BD" font-size="20" text-anchor="middle" ${F}>gravity torque on the shoulder (N·m) →</text>`;
+    D.points.forEach(([t, l], i) => {
+      const f = t <= D.flip_tau, dl = ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1, dd = (dl * 1.3).toFixed(2);
+      s += `<circle class="pt${f ? ' fp' : ''}" cx="${X(t).toFixed(1)}" cy="${Y(l).toFixed(1)}" r="5.5" fill="#4EA1FF" fill-opacity=".55" ${f ? 'stroke="#fff" stroke-width="1.2"' : ''} style="transition-delay:${dd}s,${dd}s,0s,0s"/>`;
+    });
+    s += `<g class="cst" opacity="0"><line x1="${L}" x2="${R}" y1="${Y(D.constant)}" y2="${Y(D.constant)}" stroke="#F2F6FC" stroke-width="4" stroke-dasharray="14 10"/>` +
+         `<text x="${R - 6}" y="${Y(D.constant) - 16}" fill="#F2F6FC" font-size="23" font-weight="700" text-anchor="end" ${F} stroke="#0b111c" stroke-width="7" paint-order="stroke">fixed offset +${D.constant.toFixed(1)}° (classical calibration)</text></g>`;
+    s += `<g class="flt" opacity="0"><text x="${X(x0) + 12}" y="${T + 34}" fill="#F2C14E" font-size="21" font-weight="700" ${F}>weight crosses</text><text x="${X(x0) + 12}" y="${T + 60}" fill="#F2C14E" font-size="21" font-weight="700" ${F}>the shoulder</text></g>`;
+    $('#s3svg').innerHTML = s;
+  })();
+  function s3(k){
+    const sv = $('#s3svg');
+    sv.querySelector('.cst').setAttribute('opacity', k >= 1 ? 1 : 0);
+    sv.querySelector('.flipz').setAttribute('opacity', k >= 1 ? 1 : 0);
+    sv.querySelector('.flt').setAttribute('opacity', k >= 1 ? 1 : 0);
+    sv.querySelectorAll('.fp').forEach(e => { e.setAttribute('fill', k >= 1 ? '#F2C14E' : '#4EA1FF'); e.setAttribute('fill-opacity', k >= 1 ? 1 : .55); e.setAttribute('r', k >= 1 ? 8.5 : 5.5); });
+  }
+
+  /* ---------- counters (run when their step is revealed) ---------- */
+  const fmt = (v, dec) => dec ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US');
+  function count(el, from, to, dec, dur){
+    if (STATIC || !dur) { el.textContent = fmt(to, dec); return; }
+    const t1 = performance.now();
+    (function f(now){ const k = Math.min(1, (now - t1) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(from + (to - from) * e, dec); if (k < 1) requestAnimationFrame(f); })(t1);
+  }
+  function runCounts(sl, k, animate){
+    sl.querySelectorAll('[data-count]').forEach(el => {
+      let at = 0; for (let p = el.parentElement; p && p !== sl; p = p.parentElement) if (p.dataset.at !== undefined) at = Math.max(at, +p.dataset.at);
+      const from = +(el.dataset.from || 0), to = +el.dataset.count, dec = +(el.dataset.dec || 0);
+      if (k < at) el.textContent = fmt(from, dec);
+      else count(el, from, to, dec, animate && at === k ? +(el.dataset.dur || 1500) : 0);
+    });
+  }
+
+  /* ---------- media that waits for a step ---------- */
+  function holdMedia(sl, k, animate){
+    sl.querySelectorAll('video').forEach(v => {
+      const h = v.dataset.hold !== undefined ? +v.dataset.hold : (v.closest('[data-hold]') ? +v.closest('[data-hold]').dataset.hold : 0);
+      if (STATIC) return;
+      if (k < h) { v.pause(); try { v.currentTime = 0; } catch (e) {} }
+      else if (animate || v.paused) { if (animate && h === k) { try { v.currentTime = 0; } catch (e) {} } v.play().catch(() => {}); }
+    });
+    if (sl.id === 's1' && !STATIC) {
+      if (k < 1) { G.v.pause(); try { G.v.currentTime = 0; } catch (e) {} }
+      else if ((animate && k >= 1) || G.v.paused) { if (animate) { try { G.v.currentTime = 0; } catch (e) {} } G.v.play().catch(() => {}); }
+    }
+    if (sl.id === 's2' && !STATIC) {
+      if (k < 2) { F.v.pause(); try { F.v.currentTime = 0; } catch (e) {} }
+      else if (F.v.paused) { try { F.v.currentTime = 0; } catch (e) {} F.v.play().catch(() => {}); }
+    }
+  }
+
+  /* ---------- steps ---------- */
+  function applyStep(sl, k, animate){
+    sl.querySelectorAll('[data-at]').forEach(e => e.classList.toggle('on', k >= +e.dataset.at));
+    sl.querySelectorAll('[data-until]').forEach(e => e.classList.toggle('gone', k > +e.dataset.until));
+    sl.querySelectorAll('.beat').forEach(b => b.classList.toggle('dim', !b.classList.contains('so') && k > +b.dataset.at));
+    for (let j = 0; j < 4; j++) sl.classList.toggle('st' + j, k === j);
+    if (sl.id === 's1') { sl.querySelector('canvas.amb').dataset.src = k >= 1 ? '#grc' : '#s1 .l0 video'; if (STATIC || !animate || k < 1) G.m = k >= 2 ? 1 : 0; }
+    if (sl.id === 's3') s3(k);
+    if (sl.id === 's4') { W.target = k >= 2 ? 1 : 0; if (STATIC) W.x = k >= 2 ? 1 : 0; else if (!animate) W.x = W.target; }
+    holdMedia(sl, k, animate);
+    runCounts(sl, k, animate && !STATIC);
+  }
+
+  /* ---------- navigation ---------- */
+  function go(i, atEnd){
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    if (cur >= 0) { slides[cur].classList.remove('active', 'rain'); slides[cur].querySelectorAll('video').forEach(v => v.pause()); }
+    W.v.pause(); F.v.pause(); G.v.pause();
+    cur = i; const sl = slides[cur], n = +sl.dataset.steps || 0;
+    step = STATIC ? (qs.has('step') ? Math.min(n, +qs.get('step')) : n) : (atEnd ? n : 0);
+    sl.querySelectorAll('[data-at]').forEach(e => e.classList.remove('on'));
+    void sl.offsetWidth;
+    sl.classList.add('active');
+    if (!STATIC) sl.querySelectorAll('video').forEach(v => { try { v.currentTime = 0; } catch (e) {} });
+    if (sl.id === 's4' && !atEnd && !STATIC) W.x = 0;
+    applyStep(sl, step, !atEnd);
+    requestAnimationFrame(() => { sl.classList.add('rain'); setChain(sl); });
+    if (!STATIC && sl.id === 's4') { try { W.v.currentTime = 0; } catch (e) {} W.v.play().catch(() => {}); }
+    history.replaceState(null, '', location.pathname + location.search + '#' + (cur + 1));
+    $('#prog').style.width = ((cur + 1) / slides.length * 100) + '%';
+    notes();
+  }
+  function next(){ const sl = slides[cur], n = +sl.dataset.steps || 0; if (step < n) { step++; applyStep(sl, step, true); notes(); } else go(cur + 1); }
+  function prev(){ const sl = slides[cur]; if (step > 0) { step--; applyStep(sl, step, false); notes(); } else go(cur - 1, true); }
+
+  (function loop(){
+    const sl = slides[cur];
+    if (sl) {
+      if (sl.id === 's1' && step >= 1) { if (!STATIC) G.m += ((step >= 2 ? 1 : 0) - G.m) * .05; drawGr(); }
+      if (sl.id === 's2') { drawFit(); const t = STATIC ? (step >= 2 ? 99 : 0) : (step >= 2 ? F.v.currentTime : 0);
+        sl.querySelectorAll('.ph').forEach(p => p.classList.toggle('live', t >= +p.dataset.t0 && t < +p.dataset.t1)); }
+      if (sl.id === 's4') { if (!STATIC) W.x += (W.target - W.x) * (W.drag ? 1 : .03); drawWipe(); }
+      drawAmb(sl);
+    }
+    requestAnimationFrame(loop);
+  })();
+
+  /* ---------- notes + timer ---------- */
+  const panel = $('#notes'), plan = slides.map(s => +s.dataset.time || 0), total = plan.reduce((a, b) => a + b, 0);
+  const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  function notes(){
+    if (!panel.classList.contains('on')) return;
+    const sl = slides[cur], n = +sl.dataset.steps || 0, until = plan.slice(0, cur + 1).reduce((a, b) => a + b, 0);
+    const el = t0 ? (performance.now() - t0) / 1000 : 0;
+    panel.querySelector('.meta').innerHTML = `<span>Slide <b>${cur + 1}/${slides.length}</b>${n ? ` · step <b>${step}/${n}</b>` : ''}</span><span>This slide <b>${plan[cur]} s</b></span>` +
+      `<span>Planned by end of slide <b>${mmss(until)}</b> / ${mmss(total)}</span><span>Elapsed <b>${mmss(el)}</b></span><span>(T: reset timer)</span>`;
+    panel.querySelector('.txt').textContent = (sl.querySelector('.notes') || {}).textContent || '';
+  }
+  setInterval(notes, 1000);
+
+  addEventListener('keydown', e => {
+    const k = e.key;
+    if (['ArrowRight', 'PageDown', ' ', 'Enter', 'ArrowDown'].includes(k)) { e.preventDefault(); if (!t0) t0 = performance.now(); next(); }
+    else if (['ArrowLeft', 'PageUp', 'Backspace', 'ArrowUp'].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(slides.length - 1);
+    else if (k === 'n' || k === 'N') { panel.classList.toggle('on'); notes(); }
+    else if (k === 't' || k === 'T') { t0 = performance.now(); notes(); }
+    else if (k === 'f' || k === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  });
+  stage.addEventListener('click', e => { if (e.target.closest('canvas.wipe')) return; e.shiftKey ? prev() : next(); });
+
+  go((parseInt((location.hash || '#1').slice(1), 10) || 1) - 1);
+  if (qs.has('notes')) { panel.classList.add('on'); notes(); }
+})();
+</script>
+</body>
+</html>
