@@ -205,7 +205,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 #s5 .nd.tn{background:rgba(78,161,255,.2);border:2px solid rgba(78,161,255,.9);box-shadow:0 0 50px rgba(78,161,255,.45)}
 #s5 .lg{position:absolute;left:0;top:112px;width:960px;display:flex;justify-content:center;gap:40px;font-size:19px;color:var(--muted)}
 #s5 .lg i{display:inline-block;width:34px;height:6px;border-radius:3px;margin-right:10px;vertical-align:4px}
-#s5 .pair{position:absolute;left:0;top:172px;width:960px;height:514px;border-radius:22px;overflow:hidden;background:url(assets/hover_pair.jpg) center/100% 100% no-repeat;box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+#s5 .pair{position:absolute;left:0;top:172px;width:960px;height:514px;border-radius:22px;overflow:hidden;background:url(media/hover_pair.jpg) center/100% 100% no-repeat;box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
 #s5 .veil{position:absolute;z-index:3;top:0;bottom:0;left:50.53%;right:0;display:grid;place-items:center;background:rgba(5,8,15,.86);backdrop-filter:blur(6px);font-size:30px;font-weight:800;color:var(--blue2)}
 #s5 .pair .tag.bl{left:calc(50.53% + 16px)}
 
@@ -259,7 +259,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 
 <!-- =================== 0 · OPENING =================== -->
 <section class="slide" id="s0" data-time="10" data-chain="hero">
-  <div class="bgv"><video src="assets/sweep_wall.mp4" poster="assets/sweep_wall_poster.jpg" muted loop playsinline preload="auto"></video></div>
+  <div class="bgv"><video src="media/sweep_wall.mp4" poster="media/sweep_wall_poster.jpg" muted loop playsinline preload="auto"></video></div>
   <div class="shade"></div>
   <div class="layer logo" data-at="0">Twin<span>Nudge</span></div>
   <div class="layer tl d2" data-at="0">A learned correction that lets robot AI trained in a digital twin <b>work on the real arm</b></div>
@@ -284,7 +284,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
     </div>
   </div>
   <div class="rp" data-at="0">
-    <div class="lay l0"><video src="assets/state_gap.mp4" poster="assets/state_gap_poster.jpg" muted loop playsinline preload="auto"></video>
+    <div class="lay l0"><video src="media/state_gap.mp4" poster="media/state_gap_poster.jpg" muted loop playsinline preload="auto"></video>
       <div class="tag w l"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>same command, twin over the photo</div></div>
     <div class="lay l1" data-at="1"><canvas id="grc" width="960" height="720"></canvas>
       <div class="glg"><div><i class="ln dk"></i>GR00T's plan</div><div class="gt1"><i class="ln or"></i>where the arm went</div><div class="gt2"><i class="ln bu"></i>where the arm went</div></div>
@@ -323,7 +323,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
         <div class="ph" data-t0="5" data-t1="99"><div class="n">03</div><div>The pull is the label Δq*</div><span>one pose, one label</span></div>
       </div>
       <div class="sweep" data-at="3" data-hold="3">
-        <video src="assets/sweep_wall.mp4" poster="assets/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="assets/sweep_dots_still.jpg"></video>
+        <video src="media/sweep_wall.mp4" poster="media/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="media/sweep_dots_still.jpg"></video>
         <div class="ct"><span class="num grad" data-count="1002" data-dur="3000">1,002</span><div>real poses · one sweep · under 2 hours</div></div>
       </div>
     </div>
@@ -426,7 +426,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
     </div>
   </div>
   <div class="rp bare" data-at="0">
-    <div class="once"><video src="assets/sweep_wall.mp4" poster="assets/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="assets/sweep_grid_still.jpg"></video>
+    <div class="once"><video src="media/sweep_wall.mp4" poster="media/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="media/sweep_grid_still.jpg"></video>
       <div class="tag w l">Once per arm · cameras · labels</div></div>
     <div class="every" data-at="2">
       <div class="k">EVERY CONTROL STEP · NO CAMERA</div>
@@ -450,13 +450,13 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
     <div class="h">Same policy, same 20 layouts. <span class="b">Only the arm is aligned.</span></div>
   </div>
   <div class="pv L" data-at="0">
-    <video src="assets/real_fail.mp4" poster="assets/real_fail_poster.jpg" muted loop playsinline preload="auto"></video>
+    <video src="media/real_fail.mp4" poster="media/real_fail_poster.jpg" muted loop playsinline preload="auto"></video>
     <div class="tag o l">Without TwinNudge</div>
     <div class="est">Real: no ground truth · paths are our model's estimate</div>
     <div class="score"><div class="num" style="color:var(--orange)">0/20</div><div>the safety stop ended every run</div></div>
   </div>
   <div class="pv R" data-at="0">
-    <video src="assets/real_success.mp4" poster="assets/real_success_poster.jpg" muted loop playsinline preload="auto" data-hold="1"></video>
+    <video src="media/real_success.mp4" poster="media/real_success_poster.jpg" muted loop playsinline preload="auto" data-hold="1"></video>
     <div class="tag bl l">With TwinNudge</div>
     <div class="est">Real: no ground truth · paths are our model's estimate</div>
     <div class="score" data-at="1"><div class="num" style="color:var(--blue2)">20/20</div><div>the same stop never fired</div></div>
@@ -475,7 +475,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 
 <div id="notes"><div class="meta"></div><div class="txt"></div></div>
 
-<script src="assets/scatter_shoulder.js"></script>
+<script src="media/scatter_shoulder.js"></script>
 <script>
 (function(){
   const qs = new URLSearchParams(location.search);
@@ -536,10 +536,10 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 
   /* ---------- 1.2: the one-pose fit, its three views re-laid out 2 x 2 ---------- */
   const F = { cv: $('#fit4') };
-  F.v = Object.assign(document.createElement('video'), { src: 'assets/fit_one_pose.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
+  F.v = Object.assign(document.createElement('video'), { src: 'media/fit_one_pose.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
   const CELLS = [[0, 0], [486, 0], [0, 365]], SX = [0, 640, 1280];
   function drawFit(){
-    const d = frameOf(F.v, step >= 2 ? 'assets/fit_one_pose_poster.jpg' : 'assets/fit_one_pose_start.jpg'); if (!d) return;
+    const d = frameOf(F.v, step >= 2 ? 'media/fit_one_pose_poster.jpg' : 'media/fit_one_pose_start.jpg'); if (!d) return;
     const ctx = F.cv.getContext('2d'), s = dims(d)[0] / 1904;
     ctx.fillStyle = '#0b111c'; ctx.fillRect(0, 0, 960, 720);
     CELLS.forEach(([x, y], k) => ctx.drawImage(d, SX[k] * s, 0, 624 * s, 468 * s, x, y, 474, 355));
@@ -547,8 +547,8 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 
   /* ---------- 1.1: GR00T clip, left half = no correction, right half = TwinNudge (1920 px each, 12 px gap) ---------- */
   const G = { cv: $('#grc'), m: 0 };
-  G.v = Object.assign(document.createElement('video'), { src: 'assets/groot_follow.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
-  G.v.setAttribute('poster', 'assets/groot_follow_poster.jpg');
+  G.v = Object.assign(document.createElement('video'), { src: 'media/groot_follow.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
+  G.v.setAttribute('poster', 'media/groot_follow_poster.jpg');
   function drawGr(){
     const d = frameOf(G.v); if (!d) return;
     const ctx = G.cv.getContext('2d'), k = dims(d)[0] / 3852;
@@ -558,8 +558,8 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 
   /* ---------- 1.4: wipe on one frame (left half of the clip = no correction, right half = MLP) ---------- */
   const W = { cv: $('#s4 canvas.wipe'), x: 0, target: 0, drag: false };
-  W.v = Object.assign(document.createElement('video'), { src: 'assets/mlp_real.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
-  W.v.setAttribute('poster', STATIC ? 'assets/mlp_real_still.jpg' : 'assets/mlp_real_poster.jpg');
+  W.v = Object.assign(document.createElement('video'), { src: 'media/mlp_real.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
+  W.v.setAttribute('poster', STATIC ? 'media/mlp_real_still.jpg' : 'media/mlp_real_poster.jpg');
   function drawWipe(){
     const ctx = W.cv.getContext('2d'), d = frameOf(W.v); if (!d) return;
     const k = dims(d)[0] / 1936, w = W.cv.width, h = W.cv.height;
