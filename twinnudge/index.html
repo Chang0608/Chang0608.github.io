@@ -92,6 +92,50 @@ body.static #chain .fill::after,body.static #chain .node.cur .disc::after{displa
 .cap{position:absolute;z-index:3;left:864px;top:932px;width:960px;font-size:19px;line-height:1.4;color:var(--muted)}
 .cap b{color:var(--ink);font-weight:600}
 
+
+/* ---------- 1.2 explainer: one camera, big ---------- */
+#s2 .ex{position:absolute;inset:0;z-index:5;background:#0b111c}
+#s2 .ex canvas{position:absolute;inset:0;width:100%;height:100%}
+#s2 .ex .legend{position:absolute;z-index:6;top:16px;right:16px;display:flex;gap:16px;align-items:center;font-size:19px;font-weight:650;padding:8px 16px;border-radius:12px;background:rgba(5,8,15,.74);border:1.5px solid rgba(255,255,255,.3)}
+#s2 .ex .sw{display:inline-block;width:18px;height:18px;border-radius:5px;vertical-align:-3px;margin-right:7px}
+#s2 .ex .sw.wh{background:#F4F6F8}
+#s2 .ex .sw.co{background:linear-gradient(135deg,#F2A65A,#7BD389,#5CC8E6,#6C7CF0,#E66FD0)}
+#s2 .ex .ring{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none}
+#s2 .ex .ring circle{fill:none;stroke:#FFD24D;stroke-width:5;stroke-dasharray:14 9}
+#s2 .ex .ring text{fill:#FFE7A3;font:700 24px var(--font);paint-order:stroke;stroke:rgba(5,8,15,.85);stroke-width:7px}
+#s2 .ex .ins{position:absolute;z-index:6;top:76px;right:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+#s2 .ex .ins canvas{position:static;width:240px;height:180px;border-radius:12px;border:2px solid rgba(255,255,255,.55);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#s2 .ex .ins span{font-size:16px;font-weight:650;color:#DCE6F2;padding:4px 10px;border-radius:8px;background:rgba(5,8,15,.74)}
+#s2 .ex .stg{position:absolute;z-index:7;left:0;right:0;bottom:0;height:92px;background:linear-gradient(0deg,rgba(5,8,15,.96) 55%,rgba(5,8,15,0))}
+#s2 .ex .sg{position:absolute;left:24px;right:24px;bottom:20px;display:flex;gap:14px;align-items:center;font-size:24px;font-weight:650;line-height:1.25;color:#F2F6FC}
+#s2 .ex .sg b{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:20px;color:#06101E;background:linear-gradient(135deg,#B9DCFF,#4EA1FF)}
+#s2 .ex .lab{position:absolute;inset:0;z-index:6;background:#0b111c;padding:28px 28px 100px;display:flex;flex-direction:column;gap:22px}
+#s2 .ex .pair{display:grid;grid-template-columns:1fr 92px 1fr;align-items:center}
+#s2 .ex .pair figure{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.18)}
+#s2 .ex .pair img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+#s2 .ex .pair figcaption{position:absolute;left:10px;top:10px;font-size:16px;font-weight:700;padding:5px 11px;border-radius:9px;background:rgba(5,8,15,.78);color:#E9EFF7}
+#s2 .ex .pair .arr{text-align:center;font-size:17px;font-weight:650;color:var(--muted);line-height:1.2}
+#s2 .ex .pair .arr b{display:block;font-size:34px;color:var(--blue2);margin:2px 0}
+#s2 .ex .row{display:grid;grid-template-columns:1fr 64px 1fr;align-items:stretch}
+#s2 .ex .row .c{padding:16px 20px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+#s2 .ex .row .c.lb{background:linear-gradient(135deg,rgba(78,161,255,.2),rgba(78,161,255,.06));border-color:rgba(78,161,255,.7)}
+#s2 .ex .row .c span{display:block;font-size:14px;font-weight:800;letter-spacing:.16em;color:var(--muted)}
+#s2 .ex .row .c.lb span{color:var(--blue2)}
+#s2 .ex .row .c b{display:block;font-size:26px;font-weight:700;margin-top:4px}
+#s2 .ex .row .c i{display:block;font-style:normal;font-size:19px;color:#C9D6E6;margin-top:2px}
+#s2 .ex .pair .fr{position:absolute;inset:0;width:100%;height:100%}
+#s2 .ex .pair .fr circle{fill:none;stroke:#FFD24D;stroke-width:6;stroke-dasharray:14 9}
+#s2 .ex .auto{text-align:center;font-size:21px;color:#C9D6E6}
+#s2 .ex .auto b{color:#fff;font-weight:650}
+#s2 .ex .row .eq{display:grid;place-items:center;font-size:36px;color:var(--dim)}
+/* ---------- 1.4 explainer: what 9.4 -> 1.5 mm measures ---------- */
+#s4 .ex4{position:absolute;inset:0;z-index:5;background:#0b111c}
+#s4 .ex4 svg{position:absolute;left:0;top:0;width:960px;height:430px}
+#s4 .ex4 .tx{position:absolute;left:32px;right:32px;top:436px;display:flex;flex-direction:column;gap:12px}
+#s4 .ex4 .tx p{display:grid;grid-template-columns:38px 1fr;gap:12px;font-size:21px;line-height:1.38;color:#D3DCE8}
+#s4 .ex4 .tx p b{color:#fff;font-weight:650}
+#s4 .ex4 .tx p .n{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;font-size:17px;font-weight:800;color:#06101E;background:linear-gradient(135deg,#B9DCFF,#4EA1FF);margin-top:1px}
+
 /* steps + entrance */
 [data-at]{opacity:0;transform:translateY(24px);transition:opacity .7s var(--ease),transform .9s var(--ease)}
 [data-at].on{opacity:1;transform:none}
@@ -301,7 +345,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 </section>
 
 <!-- =================== 1.2 · LABELS =================== -->
-<section class="slide" id="s2" data-time="35" data-link="1" data-steps="3">
+<section class="slide" id="s2" data-time="35" data-link="1" data-steps="4">
   <canvas class="amb" data-src="#fit4"></canvas><div class="vignette"></div>
   <div class="lc">
     <div class="k" data-at="0">1.2 · Labels</div>
@@ -310,7 +354,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
       <div class="beat d1" data-at="0"><span class="t need">NEED</span><p>Labels: <b>where the arm truly is.</b></p></div>
       <div class="beat" data-at="1"><span class="t found">FOUND</span><p>Its encoders <b>miss most of the gap.</b></p></div>
       <div class="beat so" data-at="2"><span class="t so">SO</span><div><p><b>Fit the twin onto three camera views.</b> The shift is the label.</p>
-        <p class="more" data-at="3"><b>×1,002</b> real poses in under 2 hours.</p></div></div>
+        <p class="more" data-at="4"><b>×1,002</b> real poses in under 2 hours.</p></div></div>
     </div>
   </div>
   <div class="rp" data-at="0">
@@ -322,13 +366,39 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
         <div class="ph" data-t0="1" data-t1="5"><div class="n">02</div><div>Pulled onto all three silhouettes</div><span>SAM 3 masks · Levenberg–Marquardt · no differentiable renderer</span></div>
         <div class="ph" data-t0="5" data-t1="99"><div class="n">03</div><div>The pull is the label Δq*</div><span>one pose, one label</span></div>
       </div>
-      <div class="sweep" data-at="3" data-hold="3">
+      <div class="sweep" data-at="4" data-hold="4">
         <video src="media/sweep_wall.mp4" poster="media/sweep_wall_poster.jpg" muted loop playsinline preload="auto" data-still="media/sweep_dots_still.jpg"></video>
         <div class="ct"><span class="num grad" data-count="1002" data-dur="3000">1,002</span><div>real poses · one sweep · under 2 hours</div></div>
       </div>
     </div>
+    <div class="ex" data-at="0" data-until="3">
+      <canvas id="fitbig" width="960" height="720"></canvas>
+      <div class="tag w l"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>one of the three cameras</div>
+      <div class="legend"><span><span class="sw wh"></span>real arm</span><span><span class="sw co"></span>twin</span></div>
+      <svg class="ring" data-at="0" data-until="1" viewBox="0 0 960 720"><circle cx="830" cy="510" r="118"/><text x="940" y="372" text-anchor="end">real gripper, not covered</text></svg>
+      <div class="ins" data-at="2" data-until="2"><canvas id="fin0" width="480" height="360"></canvas><canvas id="fin2" width="480" height="360"></canvas><span>the other two cameras, same fit</span></div>
+      <div class="lab" data-at="3" data-until="3">
+        <div class="pair">
+          <figure><img src="media/fit_v1_before.jpg" alt="Twin at the command, off the real arm"><svg class="fr" viewBox="0 0 624 468"><circle cx="540" cy="332" r="78"/></svg><figcaption>Before · twin at the command</figcaption></figure>
+          <div class="arr">turned by<b>Δq</b>per joint</div>
+          <figure><img src="media/fit_v1_after.jpg" alt="Twin fitted onto the real arm"><figcaption>After · twin on the real arm</figcaption></figure>
+        </div>
+        <div class="row">
+          <div class="c"><span>INPUT</span><b>The command</b><i>6 joint angles sent to the arm</i></div>
+          <div class="eq">→</div>
+          <div class="c lb"><span>LABEL</span><b>How far each joint turned</b><i>6 small angles: Δq</i></div>
+        </div>
+        <div class="auto">The arm runs every pose by itself and the fit runs on its own: <b>no hand labelling.</b></div>
+      </div>
+      <div class="stg">
+        <div class="sg" data-at="0" data-until="1"><b>1</b><span>Send a command. The twin goes where the command says, <span style="color:#FFE7A3">off the real arm.</span></span></div>
+        <div class="sg" data-at="2" data-until="2"><b>2</b><span>The computer turns the twin's joints until it covers the real arm in all three cameras.</span></div>
+        <div class="sg" data-at="3" data-until="3"><b>3</b><span>One pose = one training example: the command, and how far each joint turned.</span></div>
+      </div>
+    </div>
   </div>
-  <div class="cap" data-at="0">The real arm in three views. The fit uses the masks' distance fields, so <b>any simulator's renderer</b> can be plugged in.</div>
+  <div class="cap" data-at="0" data-until="3">The arm's own encoders can't see this gap, so the cameras measure it. <b>White:</b> the real arm. <b>Coloured:</b> the twin.</div>
+  <div class="cap" data-at="4">The real arm in three views. The fit uses the masks' distance fields, so <b>any simulator's renderer</b> can be plugged in.</div>
   <aside class="notes"></aside>
 </section>
 
@@ -358,7 +428,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
 </section>
 
 <!-- =================== 1.4 · EVALUATION =================== -->
-<section class="slide" id="s4" data-time="30" data-link="3" data-steps="2">
+<section class="slide" id="s4" data-time="30" data-link="3" data-steps="3">
   <canvas class="amb" data-src="#s4 canvas.wipe"></canvas><div class="vignette"></div>
   <div class="lc">
     <div class="k" data-at="0">1.4 · Evaluation</div>
@@ -369,7 +439,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
       <div class="beat so" data-at="2"><span class="t so">SO</span><div><p>First where the answer is known: <b>simulation.</b></p>
         <div class="big"><span class="ib sim">SIM</span><span class="num from">9.4</span><span class="ar">→</span><span class="num to grad"><span data-count="1.5" data-dec="1" data-from="9.4" data-dur="1600">1.5</span></span><span class="u">mm</span></div>
         <div class="small">median, 512 new poses</div>
-        <p style="margin-top:10px">Then real photos of <b>unseen poses</b> →</p></div></div>
+        <p style="margin-top:10px" data-at="3">Then real photos of <b>unseen poses</b> →</p></div></div>
     </div>
   </div>
   <div class="rp" data-at="0">
@@ -377,9 +447,44 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
     <div class="tag o l" id="wTagL"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>No correction</div>
     <div class="tag bl l" id="wTagT" style="opacity:0"><span class="ib real" style="vertical-align:1px;margin-right:10px">REAL</span>TwinNudge · poses it never saw</div>
     <div class="tag o r" id="wTagR" style="opacity:0">No correction</div>
-    <div class="hint" data-at="2">drag to compare</div>
+    <div class="hint" data-at="3">drag to compare</div>
+    <div class="ex4" data-at="2" data-until="2">
+      <div class="tag bl l"><span class="ib sim" style="vertical-align:1px;margin-right:10px">SIM</span>what 9.4 → 1.5 mm measures</div>
+      <svg viewBox="0 0 960 430" font-family="Segoe UI, Inter, sans-serif">
+        <rect x="128" y="372" width="104" height="30" rx="6" fill="#1B2433" stroke="#3A475C"/>
+        <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <polyline points="180,372 180,262 382,152 586,196 652,262" stroke="#F4F6F8" stroke-opacity=".9" stroke-width="30"/>
+          <polyline points="180,262 389,167 595,228 657,304" stroke="#FF8A3D" stroke-width="9"/>
+          <polyline points="180,262 384,156 588,203 654,270" stroke="#4EA1FF" stroke-width="9"/>
+        </g>
+        <circle cx="652" cy="262" r="9" fill="#F4F6F8" stroke="#05080F" stroke-width="3"/>
+        <circle cx="657" cy="304" r="8" fill="#FF8A3D"/>
+        <circle cx="654" cy="270" r="8" fill="#4EA1FF"/>
+        <g font-size="20" font-weight="700">
+          <line x1="666" y1="304" x2="736" y2="336" stroke="#FF8A3D" stroke-width="2"/>
+          <text x="742" y="334" fill="#FFB685">9.4 mm</text><text x="742" y="358" fill="#9AA9BD" font-size="16" font-weight="600">twin, no correction</text>
+          <line x1="664" y1="268" x2="736" y2="246" stroke="#4EA1FF" stroke-width="2"/>
+          <text x="742" y="246" fill="#9BCBFF">1.5 mm</text><text x="742" y="270" fill="#9AA9BD" font-size="16" font-weight="600">twin + TwinNudge</text>
+          <line x1="640" y1="252" x2="604" y2="110" stroke="#F4F6F8" stroke-opacity=".7" stroke-width="2"/>
+          <text x="604" y="100" fill="#F4F6F8" text-anchor="middle">true end of the arm</text>
+        </g>
+        <g font-size="17" font-weight="650">
+          <rect x="40" y="78" width="16" height="16" rx="4" fill="#F4F6F8"/><text x="64" y="92" fill="#E9EFF7">the “real” arm: we built it, so its pose is known</text>
+          <rect x="40" y="106" width="16" height="16" rx="4" fill="#FF8A3D"/><text x="64" y="120" fill="#E9EFF7">twin before correction</text>
+          <rect x="40" y="134" width="16" height="16" rx="4" fill="#4EA1FF"/><text x="64" y="148" fill="#E9EFF7">twin after TwinNudge</text>
+        </g>
+        <text x="928" y="420" text-anchor="end" font-size="14" fill="#5D6C82">sketch, not to scale</text>
+      </svg>
+      <div class="tx">
+        <p><span class="n">1</span><span>In simulation we build the “real” arm ourselves: the twin plus <b>known errors</b>: joints off by −1.5° to +2.3°, cameras moved, base shifted 10 mm and turned 5°.</span></p>
+        <p><span class="n">2</span><span>TwinNudge learns from <b>camera images only</b>, the same way as on the real arm.</span></p>
+        <p><span class="n">3</span><span>Score: how far the <b>end of the arm</b> is from where it truly is. Median of <b>512 poses it never saw.</b></span></p>
+      </div>
+    </div>
   </div>
-  <div class="cap" data-at="0">248 unseen real poses. The MLP sees <b>only the command</b>, no image.</div>
+  <div class="cap" data-at="0" data-until="1">248 unseen real poses. The MLP sees <b>only the command</b>, no image.</div>
+  <div class="cap" data-at="2" data-until="2">The answer key exists only in simulation, so that is where the error is measured in millimetres.</div>
+  <div class="cap" data-at="3">248 unseen real poses. The MLP sees <b>only the command</b>, no image.</div>
   <aside class="notes"></aside>
 </section>
 
@@ -538,6 +643,13 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
   const F = { cv: $('#fit4') };
   F.v = Object.assign(document.createElement('video'), { src: 'media/fit_one_pose.mp4', muted: true, loop: true, playsInline: true, preload: 'auto' });
   const CELLS = [[0, 0], [486, 0], [0, 365]], SX = [0, 640, 1280];
+  const FB = { cv: $('#fitbig'), i0: $('#fin0'), i2: $('#fin2') };
+  function drawBig(){
+    const d = step <= 1 ? img('media/fit_one_pose_start.jpg') : frameOf(F.v, 'media/fit_one_pose_poster.jpg'); if (!d) return;
+    const w = dims(d)[0]; if (!w) return; const s = w / 1904;
+    FB.cv.getContext('2d').drawImage(d, 640 * s, 0, 624 * s, 468 * s, 0, 0, 960, 720);
+    if (step === 2) [[FB.i0, 0], [FB.i2, 1280]].forEach(([c, x]) => c.getContext('2d').drawImage(d, x * s, 0, 624 * s, 468 * s, 0, 0, c.width, c.height));
+  }
   function drawFit(){
     const d = frameOf(F.v, step >= 2 ? 'media/fit_one_pose_poster.jpg' : 'media/fit_one_pose_start.jpg'); if (!d) return;
     const ctx = F.cv.getContext('2d'), s = dims(d)[0] / 1904;
@@ -663,7 +775,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
     for (let j = 0; j < 4; j++) sl.classList.toggle('st' + j, k === j);
     if (sl.id === 's1') { sl.querySelector('canvas.amb').dataset.src = k >= 1 ? '#grc' : '#s1 .l0 video'; if (STATIC || !animate || k < 1) G.m = k >= 2 ? 1 : 0; }
     if (sl.id === 's3') s3(k);
-    if (sl.id === 's4') { W.target = k >= 2 ? 1 : 0; if (STATIC) W.x = k >= 2 ? 1 : 0; else if (!animate) W.x = W.target; }
+    if (sl.id === 's4') { W.target = k >= 3 ? 1 : 0; if (STATIC) W.x = k >= 3 ? 1 : 0; else if (!animate) W.x = W.target; }
     holdMedia(sl, k, animate);
     runCounts(sl, k, animate && !STATIC);
   }
@@ -694,7 +806,7 @@ body.pdf .beat .more{font-size:32px;border-top:none;padding-top:0;margin-top:22p
     const sl = slides[cur];
     if (sl) {
       if (sl.id === 's1' && step >= 1) { if (!STATIC) G.m += ((step >= 2 ? 1 : 0) - G.m) * .05; drawGr(); }
-      if (sl.id === 's2') { drawFit(); const t = STATIC ? (step >= 2 ? 99 : 0) : (step >= 2 ? F.v.currentTime : 0);
+      if (sl.id === 's2') { if (step <= 2) drawBig(); drawFit(); const t = STATIC ? (step >= 2 ? 99 : 0) : (step >= 2 ? F.v.currentTime : 0);
         sl.querySelectorAll('.ph').forEach(p => p.classList.toggle('live', t >= +p.dataset.t0 && t < +p.dataset.t1)); }
       if (sl.id === 's4') { if (!STATIC) W.x += (W.target - W.x) * (W.drag ? 1 : .03); drawWipe(); }
       drawAmb(sl);
